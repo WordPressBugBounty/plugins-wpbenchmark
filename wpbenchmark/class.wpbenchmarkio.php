@@ -1196,7 +1196,7 @@ class wpbenchmarkio {
 				$id_from = ($j*10)+1;
 				$id_to   = (($j+1)*10);
 
-				$sql = "select SQL_NO_CACHE * from ".$this->dbtables["log"]." where o_id in (select SQL_NO_CACHE o_id from ".$this->dbtables["obj"]." where o_id>=".$id_from." and o_id<=".$id_to." order by RAND()) order by RAND() limit 5;";
+				$sql = "select SQL_NO_CACHE * from ".$this->dbtables["log"]." where o_id in (select o_id from ".$this->dbtables["obj"]." where o_id>=".$id_from." and o_id<=".$id_to." order by RAND()) order by RAND() limit 5;";
 				$sql_result = $wpdb->get_results($sql, ARRAY_A);
 				foreach($sql_result as $r) {
 					$sql_result_2 = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["obj"]." where o_id=".$r["o_id"], ARRAY_A);
