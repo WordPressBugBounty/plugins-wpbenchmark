@@ -3,9 +3,9 @@ Contributors: anton.aleksandrov
 Donate link: https://wpbenchmark.io/
 Tags: benchmark, test, speed, hosting, performance
 Requires at least: 4.0
-Tested up to: 6.6
+Tested up to: 6.7
 Requires PHP: 5.6
-Stable tag: 1.4.7
+Stable tag: 1.4.8
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -40,6 +40,8 @@ Please use default Wordpress plugin installation method through Wordpress plugin
 3. Backward connectivity test results and timings
 
 == Changelog ==
+
+1.4.8  - bug in running-benchmark leftovers
 
 1.4.7  - bug in SQL queries fix
 

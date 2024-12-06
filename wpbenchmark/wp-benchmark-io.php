@@ -7,7 +7,7 @@ Plugin Name: WordPress Hosting Benchmark tool
 Plugin URI: https://wordpress.org/plugins/wpbenchmark/
 Description: Utility to benchmark and stresstest your Wordpress hosting server, its capabilities, speed and compare with other hosts.
 Text Domain: 
-Version: 1.4.7
+Version: 1.4.8
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
@@ -71,8 +71,13 @@ class wp_benchmark_io {
 			"anonymize_after"=>"day"			
 		);
 		update_option(self::$plugin_option_name, self::$settings);
+		# delete some old possible leftovers
+		delete_option("wp-benchmark-io-running");
 	}
-	public static function plugin_deactivation() {}
+	public static function plugin_deactivation() {
+		delete_option(self::$plugin_option_name, self::$settings);
+		delete_option("wp-benchmark-io-running");
+	}
 
 
 
@@ -126,6 +131,9 @@ class wp_benchmark_io {
 
 				
 				update_option(self::$plugin_option_name, self::$settings);
+
+				# what if benchmark was left running, reset
+				delete_option("wp-benchmark-io-running");
 			}
 
 
