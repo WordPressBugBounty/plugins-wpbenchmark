@@ -556,7 +556,7 @@ class wpbenchmarkio {
 		return true;
 	}
 
-	function test_cpu_randbytes() {
+	function test_cpu_randbytes($s_max=800000) {
 
 		$a=null;
 		for($i=0;$i<1500;$i++) {
@@ -568,7 +568,7 @@ class wpbenchmarkio {
 		
 		# 30 720 000
 		# 1000000
-		for ($s=0;$s<800000;$s++) {
+		for ($s=0;$s<$s_max;$s++) {
 
 			$ahex_capital.=strtoupper($ahex[rand(0,30000000)]);
 
@@ -581,21 +581,21 @@ class wpbenchmarkio {
 		return true;
 	}
 
-	function test_cpu_regex() {
+	function test_cpu_regex($i_max=100, $j_max=30, $s_length=20480) {
 		$data = array();
 
-		for ($i=0;$i<100;$i++) {
+		for ($i=0;$i<$i_max;$i++) {
 			$replace_value = $this->random_string(2);
 			
 
 			$s = $replace_value.", ";
 
-			while(mb_strlen($s)<20480) {
+			while(mb_strlen($s)<$s_length) {
 				$s.=$this->random_string(10).", ";				
 			}
 
 
-			for ($j=0;$j<30;$j++) {
+			for ($j=0;$j<$j_max;$j++) {
 				$replace_with  = $this->random_string(2);
 				$s = mb_eregi_replace($replace_value, $replace_with, $s);
 				$s = mb_eregi_replace($replace_with, $replace_value, $s);
@@ -605,6 +605,11 @@ class wpbenchmarkio {
 			$data[] = $s;
 		}
 
+		# if this function is called with minimal parameters - make it lighter and quit here
+		if ($i_max==$j_max && $i_max==1) {
+			return true;
+		}
+
 		$data_splitted_2 = array();
 		$data_splitted = array();
 		foreach($data as $big_string) {
@@ -612,10 +617,11 @@ class wpbenchmarkio {
 			array_merge($data_splitted_2, preg_split("/[\s,]+/", $big_string));
 		}
 
+
+
 		foreach($data_splitted as $rk=>$r_array) {
 			sort($data_splitted[$rk]);
 		}
-
 
 		foreach($data_splitted_2 as $rk=>$rv) {
 			$data_splitted_2[$rk]=md5(md5($rv));
@@ -665,6 +671,18 @@ class wpbenchmarkio {
 		for ($i=1;$i<100000;$i++) {
 		    $result = $this->wpbenchmark_fibonacci_iterative(1000); // Adjust the input value as needed
 		}
+		return true;
+	}
+
+	function test_function_output() {
+		return "Metallica";
+	}
+
+	function run_cpu_background_test() {
+		# $result = $this->test_cpu_randbytes(5);
+		$result = $this->wpbenchmark_fibonacci_iterative(500);	
+		$result = $this->test_cpu_regex(1, 1, 5120);
+
 		return true;
 	}
 

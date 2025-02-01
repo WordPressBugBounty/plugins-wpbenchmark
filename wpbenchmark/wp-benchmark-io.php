@@ -7,7 +7,7 @@ Plugin Name: WordPress Hosting Benchmark tool
 Plugin URI: https://wordpress.org/plugins/wpbenchmark/
 Description: Utility to benchmark and stresstest your Wordpress hosting server, its capabilities, speed and compare with other hosts.
 Text Domain: 
-Version: 1.4.8
+Version: 1.5.0
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
@@ -26,6 +26,12 @@ class wp_benchmark_io {
 
 	private static $settings;
 	private static $plugin_option_name = "wp-benchmark-io-settings";
+	public static $schedulled_event_stats_option_name = "wp-benchmark-io-schstats";
+	public static $schedulled_last_run_option_name = "wp-benchmark-io-last-run";
+
+	public static $schedulled_event_name = "wpbenchmark_schedulled_event";
+	public static $attempt_pingback_option = "wpbenchmark-enable-pingback";
+
 
 	private static $anonymize_after_options = array("at_once", "hour", "day", "week", "month", "never");
 	private static $anonymize_after_options_titles = array("at_once"=>"At once, always anonymous", "hour"=>"After 1 hour", "day"=>"In one day", "week"=>"In one week", "month"=>"In one month", "never"=>"Never, keep it always");
@@ -54,8 +60,16 @@ class wp_benchmark_io {
 			$hook="";
 			add_action( "{$hook}admin_menu", array("wp_benchmark_io", "add_admin_menu" ) );
 			add_action("admin_init", array("wp_benchmark_io", "execute_plugin"));
+
+			add_action( 'admin_enqueue_scripts', array("wp_benchmark_io", "enqueue_styles_scripts") );
+			
 		}
 	}
+
+	public static function enqueue_styles_scripts() {
+		wp_enqueue_script_module( "chartjs", "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js");
+	}
+
 	public static function add_admin_menu() {
 		#add_options_page( 'WP Benchmark tool', 'WP Benchmark tool', 'manage_options', 'wp_benchmark_io', array("wp_benchmark_io", "admin_menu_options") );
 		add_management_page( 'WP Benchmark tool', 'WP Benchmark tool', 'manage_options', 'wp_benchmark_io', array("wp_benchmark_io", "admin_menu_options") );
@@ -75,8 +89,34 @@ class wp_benchmark_io {
 		delete_option("wp-benchmark-io-running");
 	}
 	public static function plugin_deactivation() {
-		delete_option(self::$plugin_option_name, self::$settings);
+		$event_args = array();
+		wp_clear_scheduled_hook(self::$schedulled_event_name, $event_args);
+
+		delete_option(self::$schedulled_event_stats_option_name);
+		delete_option(self::$plugin_option_name);
 		delete_option("wp-benchmark-io-running");
+	}
+
+	/*
+	** returns per-5-minute key for schedulled task stats
+	*/
+	public static function get_timed_key() {
+		$m = date("i");
+		if ($m<5) $m=0;
+		else if ($m<10) $m=5;
+		else if ($m<15) $m=10;
+		else if ($m<20) $m=15;
+		else if ($m<25) $m=20;
+		else if ($m<30) $m=25;
+		else if ($m<35) $m=30;
+		else if ($m<40) $m=35;
+		else if ($m<45) $m=40;
+		else if ($m<50) $m=45;
+		else if ($m<55) $m=50;
+		else if ($m<60) $m=55;
+
+		# returned value is YYYYMMDDHH + rounded to 5min value
+		return date("YmdH").$m;
 	}
 
 
@@ -96,10 +136,7 @@ class wp_benchmark_io {
 		if (current_user_can( 'administrator' )) {
 			self::$settings = get_option(self::$plugin_option_name);
 
-
-			if (isset($_POST["doa"]) && $_POST["doa"]=="save_settings" && wp_verify_nonce($_POST["_wpnonce"], "wp-benchmark-io-save-settings")) {
-				# check_admin_referer("wp-benchmark-io-save-settings");
-
+			if (!isset(self::$settings["run_lite_tests"])) {
 				self::$settings = array(
 					"show_on_board"=>0,
 					"accept_terms"=>0,
@@ -108,33 +145,71 @@ class wp_benchmark_io {
 					"skip_object_cache_tests"=>0,
 					"anonymize_after"=>"day"
 				);
-
-				if (isset($_POST["show_on_board"]))
-					if ($_POST["show_on_board"]==1) self::$settings["show_on_board"] = 1;
-
-				if (isset($_POST["accept_terms"]))
-					if ($_POST["accept_terms"]==1) self::$settings["accept_terms"] = 1;
-
-				if (isset($_POST["gdpr_consent"]))
-					if ($_POST["gdpr_consent"]==1) self::$settings["gdpr_consent"] = 1;
-
-				if (isset($_POST["run_lite_tests"]))
-					if ($_POST["run_lite_tests"]==1) self::$settings["run_lite_tests"] = 1;
-
-				if (isset($_POST["skip_object_cache_tests"]))
-					if ($_POST["skip_object_cache_tests"]==1) self::$settings["skip_object_cache_tests"] = 1;
-
-				if (isset($_POST["anonymize_after"])) {
-					if (in_array($_POST["anonymize_after"], self::$anonymize_after_options))
-						self::$settings["anonymize_after"] = $_POST["anonymize_after"];
-				}
-
-				
 				update_option(self::$plugin_option_name, self::$settings);
-
-				# what if benchmark was left running, reset
-				delete_option("wp-benchmark-io-running");
 			}
+
+
+			if (isset($_POST["doa"])) {
+				if ($_POST["doa"]=="save_settings" && wp_verify_nonce($_POST["_wpnonce"], "wp-benchmark-io-save-settings")) {
+					# check_admin_referer("wp-benchmark-io-save-settings");
+
+					self::$settings = array(
+						"show_on_board"=>0,
+						"accept_terms"=>0,
+						"gdpr_consent"=>0,
+						"run_lite_tests"=>0,
+						"skip_object_cache_tests"=>0,
+						"anonymize_after"=>"day"
+					);
+
+					if (isset($_POST["show_on_board"]))
+						if ($_POST["show_on_board"]==1) self::$settings["show_on_board"] = 1;
+
+					if (isset($_POST["accept_terms"]))
+						if ($_POST["accept_terms"]==1) self::$settings["accept_terms"] = 1;
+
+					if (isset($_POST["gdpr_consent"]))
+						if ($_POST["gdpr_consent"]==1) self::$settings["gdpr_consent"] = 1;
+
+					if (isset($_POST["run_lite_tests"]))
+						if ($_POST["run_lite_tests"]==1) self::$settings["run_lite_tests"] = 1;
+
+					if (isset($_POST["skip_object_cache_tests"]))
+						if ($_POST["skip_object_cache_tests"]==1) self::$settings["skip_object_cache_tests"] = 1;
+
+					if (isset($_POST["anonymize_after"])) {
+						if (in_array($_POST["anonymize_after"], self::$anonymize_after_options))
+							self::$settings["anonymize_after"] = $_POST["anonymize_after"];
+					}
+
+					
+					update_option(self::$plugin_option_name, self::$settings);
+
+					# what if benchmark was left running, reset
+					delete_option("wp-benchmark-io-running");
+				} else if ($_POST["doa"]=="disable_schedulled_benchmark" && wp_verify_nonce($_POST["_wpnonce"], "wp-benchmark-io-disable-schedulled")) {
+					$event_args = array();
+					wp_clear_scheduled_hook(self::$schedulled_event_name, $event_args);
+					delete_option(self::$attempt_pingback_option);
+
+				} else if ($_POST["doa"]=="enable_schedulled_benchmark" && wp_verify_nonce($_POST["_wpnonce"], "wp-benchmark-io-enable-schedulled")) {
+					$event_args = array();
+					wp_schedule_single_event( time()+60, self::$schedulled_event_name, $event_args );
+
+					if (isset($_REQUEST["attempt_to_ping_me"])) {
+						if ($_REQUEST["attempt_to_ping_me"]==1) {
+							update_option(self::$attempt_pingback_option, 1);
+							self::ask_for_pingback(60);
+						} else {
+							update_option(self::$attempt_pingback_option, 0);
+						}
+					} else {
+						update_option(self::$attempt_pingback_option, 0);
+					}
+				}
+			} # END IF DOA isset
+
+
 
 
 			if (!isset(self::$settings["skip_object_cache_tests"]))
@@ -215,6 +290,20 @@ class wp_benchmark_io {
 				}
 				.wpio-btn-success:hover {
 					background:forestgreen;
+				}
+
+				.wpio-btn-danger {
+					background: #ffeaea;
+					color: #8a0000;
+					border-color: red;
+					border-width: 1px;
+					border-style: solid;
+					text-decoration: none;
+					font-size: 0.8em;
+				}
+				.wpio-btn-danger:hover {
+					background: #ffb1b1;
+					color: #8a0000;
 				}
 
 				.wpio-btn-primary {
@@ -461,6 +550,33 @@ class wp_benchmark_io {
 				}
 				.wpio-justified {
 					text-align: justify;
+				}
+
+
+				.wpbenchmark-badge {
+				  font-size: 0.8em;
+				  padding: 3px 10px;
+				  margin: 0px 5px;
+				  border-radius: 5px;
+				  top: 0px;
+				}
+
+				.wpbenchmark-badge-danger {
+				  border: 1px solid red;
+				  background-color: #ff000014;
+				  color: red;
+				}
+
+				.wpbenchmark-badge-disabled {
+				  border: 1px solid #4d4d4d;
+				  background-color: #a9a9a996;
+				  color: #484848;
+				}
+
+				.wpbenchmark-badge-success {
+				  border: 1px solid #05a000;
+				  background-color: #05a00096;
+				  color: #fff;
 				}
 
 			</style>
@@ -748,21 +864,242 @@ class wp_benchmark_io {
 			</script>
 			");
 
+
+			
+			if (!isset($_REQUEST["tab"])) {
+				$_REQUEST["tab"] = "onrequest";
+			}
+
+			
+
+
+			$onrequest_tab_class="";
+			$schedulled_tab_class="";
+
+			if ($_REQUEST["tab"]=="onrequest") {
+				$onrequest_tab_class = " nav-tab-active ";
+			} else if ($_REQUEST["tab"]=="schedulled") {
+				$schedulled_tab_class = " nav-tab-active ";
+			}
+
+			$event_args = array();
+			if (!wp_next_scheduled(self::$schedulled_event_name, $event_args)) {
+				$badge_txt = "Not enabled";
+				$badge_class = "wpbenchmark-badge-disabled";
+			} else {
+				$badge_txt = "Enabled";
+				$badge_class = "wpbenchmark-badge-success";				
+			}
+
+
+
 			print("<h1><small><i>Greetings Wizard!</i> Welcome to the</small><br>Wordpress hosting Benchmarking Tool</h1><hr>
 
 				<div class='wpio-row'>
 					<div class='wpio-col-7'>
 
+
+
+				<h2 class='nav-tab-wrapper'>
+					<a class='nav-tab link-tab".$onrequest_tab_class."' href='?page=".$_REQUEST["page"]."&tab=onrequest'>On-request benchmark</a>
+					<a class='nav-tab link-tab".$schedulled_tab_class."' href='?page=".$_REQUEST["page"]."&tab=schedulled'>Schedulled benchmark
+						<span class='wpbenchmark-badge ".$badge_class."'>".$badge_txt."</span>
+					</a>
+				</h2>
+
+			");
+
+
+			if ($_REQUEST["tab"]=="onrequest") {
+				print("
+
 						<div id='wpio-output-container'>
 						
 						</div>
+				");
+			} else if ($_REQUEST["tab"]=="schedulled") {
+
+
+
+
+
+			# develop start
+			$args = array();
+			$event_name = "wpbenchmark_schedulled_event";
+			# print("<pre>:".print_r(wp_next_scheduled($event_name, $args), true).":</pre>");
+			# print("<pre>Microtime: ".microtime(true).":</pre>");
+			# print("<pre>Time     : ".time()."</pre>");
+
+			if (!wp_next_scheduled(self::$schedulled_event_name, $args)) {
+				# wp_schedule_single_event( time()+60, $event_name, $args );
+
+				print("
+
+				<form action='' method='post' class='form-vertical'>
+					<input type='hidden' name='doa' value='enable_schedulled_benchmark'>
+					<input type='hidden' name='_wpnonce' value='".wp_create_nonce("wp-benchmark-io-enable-schedulled")."'>
+
+					<div class='wpio-row'>
+					<div class='wpio-col-7' style='padding-left:2em; margin-top:25px; margin-bottom:10px;'>
+						<div style='padding-bottom:10px; font-size:1.2em;'>
+							<label><input type='checkbox' name='attempt_to_ping_me' value='1'> - attempt to ping my Wordpress. Enable, if your Wordpress has very low traffic. My script will attempt to ping back to trigger schedulled event, but I can not promise accuracy.</label>
+						</div>
+						<button type='submit' class='wpio-btn wpio-btn-success wpio-btn-block wpio-btn-lg'>Enable schedulled benchmarking</button>
+					</div>
+					</div>
+				</form>
+				");
+			} else {
+
+
+
+				print("
+
+				<form action='' method='post' class='form-vertical'>
+					<input type='hidden' name='doa' value='disable_schedulled_benchmark'>
+					<input type='hidden' name='_wpnonce' value='".wp_create_nonce("wp-benchmark-io-disable-schedulled")."'>
+
+					<div class='wpio-row'>
+						<div class='wpio-col-3' style='padding-left:2em;'>
+							<h3>Next run at <i>".date("H:i:s d.M.Y", wp_next_scheduled($event_name, $args))."</i></h3>
+						</div>
+
+						<div class='wpio-col-4' style='text-align:right;'>
+							<h3><button type='submit' href='#' class='wpio-btn wpio-btn-danger'>Disable schedulled benchmarking</button></h3>
+						</div>
+					</div>
+				</form>
+				");
+				
+			}
+
+			
+
+
+			$schedulled_stats = get_option(self::$schedulled_event_stats_option_name);
+
+			print("<h2 style='padding-left: 2em; font-size: 2em;'>Your server performance results</h2>");
+			print("<canvas id='wpbenchmark_graph' style='max-width:800px; max-height:400px;'></canvas>");
+
+
+			print("
+				<hr style='margin-top:2em;'>
+				<div style='padding-left:2em;'>
+					<h3 style='margin-bottom:0px;'>Notes about schedulled benchmark</h3>
+					<p>
+						<ul style='list-style: disclosure-closed;'>
+							<li>only CPU is being benchmarked</li>
+							<li>one schedulled request will run for 2 seconds and register number of completed iteractions</li>
+							<li>more iteractions means more CPU performance (per single core)</li>
+							<li>events are schedulled and registered no more than once per 5 minutes</li>
+							<li>ensure, that there are enough requests to your Wordpress or configured cronjob - without that schedulled events can not be executed</li>
+							<li>history will be stored for maximum 7 days to avoid excessive database storage</li>
+							<li>no information is being transferred outside your Wordpress - schedulled benchmarking is done purely locally</li>
+							<li>this page and graph above will not reload automatically ;)</li>
+							<li>your <a href='https://wpbenchmark.io' target=_blank>suggestions</a> and <a href='https://wordpress.org/support/plugin/wpbenchmark/reviews/' target=_blank>ratings</a> are always very weclome!</li>
+						</ul>
+					</p>
+				</div>
+			");
+
+			$labels_txt = "";
+			$labels_sep = "";
+			$dataset_txt = "";
+			$dataset_sep = "";
+
+			if (count($schedulled_stats)>0) {
+				foreach($schedulled_stats as $s) {
+					$labels_txt .= $labels_sep . "'".date("H:i d.M", $s["run_time"])."'";
+					$labels_sep = ", ";
+
+					$dataset_txt .= $dataset_sep . $s["iteraction_count"];
+					$dataset_sep = ", ";
+				}
+			}
+
+
+			print("
+				<script>
+
+				jQuery(document).ready(function() {
+
+				let labels = [" . $labels_txt . "];
+				let dataset1 = [" . $dataset_txt . "];
+
+				let ctx = document.getElementById('wpbenchmark_graph').getContext('2d');
+
+				let wpbenchmark_graph = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Iteractions 2',
+                        data: dataset1,
+                        borderColor: 'blue',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.5,
+                        pointRadius: 0,
+                        pointHitRadius:20
+                    },
+                ]
+            },
+            options: {
+            	plugins: {
+            		legend: {
+            			display:false
+            		}
+            	},
+                responsive: true,
+                scales: {
+                    x: {
+                        
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Iteractions',
+                            font: {
+                                size: 20,
+                                weight: 'bold',
+                                family: 'Arial'
+                            },
+                            color: 'black'
+                        },
+                        beginAtZero: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Iteractions',
+                        }
+                    }
+                }
+            }
+        });
+
+        	});
+
+        	</script>
+			");
+
+			# develop end
+
+
+
+
+			}
+
+
+
+
+			print("
 					</div>
 					<div class='wpio-col-3'>
 
 				");
 
 
-			
+		if ($_REQUEST["tab"]!="schedulled") {
 			print("
 				
 				<div class='wpio-row'>
@@ -835,6 +1172,8 @@ class wp_benchmark_io {
 				</div>
 
 			");
+
+		}
 
 			$history = get_option("wp-benchmark-io-history");
 
@@ -1081,9 +1420,101 @@ class wp_benchmark_io {
 			die(json_encode(array("bench_code"=>$running_benchmark["bench_code"], "progress"=>$progress, "status"=>$status, "description"=>$dsc, "group_progress"=>$group_progress, "skip_object_cache_tests"=>$running_benchmark["skip_object_cache_tests"])));
 		}
 	} # end function execute_plugin
+
+	static function schedulled_event() {
+
+		require_once(dirname(__FILE__)."/class.wpbenchmarkio.php");
+		$wpbench = new wpbenchmarkio();
+
+		$iteraction_count = 0;
+		$start_microtime = microtime(true);
+		$keep_going = true;
+		while ($keep_going) {
+
+			$wpbench->run_cpu_background_test();
+			$iteraction_count++;
+
+			#for ($i=0;$i++;$i<1000) {
+			#	$a = md5(rand(10000,99999));
+			#}
+
+
+			if ( (microtime(true)-$start_microtime)>2 ) {
+
+				$txt = "Executed count: ".$iteraction_count.PHP_EOL;
+				$keep_going=false;
+			} 
+		}
+
+		
+		# wp_mail("anton@aleksandrov.eu", "wpbenchmark: ".date("H:i:s")." - ".$iteraction_count . " : ".$ask_for_pingback." : v17", print_r($ask_for_pingback,true) . PHP_EOL . "Current time: ".date("H:i:s d.M.Y").PHP_EOL.$txt . PHP_EOL."Microtime: ".$start_microtime." - ".microtime(true).PHP_EOL);
+
+		$schedulled_stats = get_option(self::$schedulled_event_stats_option_name);
+		if (!is_array($schedulled_stats)) {
+			$schedulled_stats=array();
+		}
+
+		$schedulled_stats[self::get_timed_key()] = array("run_time"=>time(), "iteraction_count"=>$iteraction_count);
+		
+		# if array grows too big, start removing oldest keys
+		if (count($schedulled_stats)>2016)
+			array_shift($schedulled_stats);
+
+		# save stats in database
+		update_option(self::$schedulled_event_stats_option_name, $schedulled_stats);
+
+		
+		# update time of last schedulled task execution. 
+		update_option(self::$schedulled_last_run_option_name, time());
+
+		$args = array();
+		$event_name = "wpbenchmark_schedulled_event";
+
+		if (!wp_next_scheduled($event_name, $args)) {
+			wp_schedule_single_event( time()+296, $event_name, $args );
+		
+			$ask_for_pingback = get_option(self::$attempt_pingback_option);
+			if (isset($ask_for_pingback)) {
+				if ($ask_for_pingback==1) {
+					// ask for pingback
+					self::ask_for_pingback(296);
+				}
+			}
+		}
+	}
+
+	/*
+	** function to ask wpbenchmark server to ping back this website
+	*/
+	static function ask_for_pingback($after_time=300) {
+		if ($after_time<296) {
+			$after_time=296;
+		}
+
+		$data = array();
+		$data["site_url"] = get_site_url();
+		$data["after_time"] = $after_time;
+
+		wp_remote_post("https://collect.wpbenchmark.io/ping_me_back.php", array("body"=>$data));
+
+		return true;
+	}
 } # end of class
 
 
 if ( is_admin() ) {
 	add_action( 'init', array( 'wp_benchmark_io', 'admin_init' ) );
 }
+
+
+# schedulled actions
+add_action('wpbenchmark_schedulled_event', array('wp_benchmark_io', 'schedulled_event'));
+
+/*
+		update_option(self::$plugin_option_name, self::$settings);
+		# delete some old possible leftovers
+		delete_option("wp-benchmark-io-running");
+get_option(self::$plugin_option_name);
+	public static $schedulled_event_stats_option_name = "wp-benchmark-io-schstats";
+	public static $schedulled_last_run_option_name = "wp-benchmark-io-last-run";
+*/
