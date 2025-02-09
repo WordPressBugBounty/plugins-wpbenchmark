@@ -5,7 +5,7 @@ Tags: benchmark, test, speed, hosting, performance
 Requires at least: 4.0
 Tested up to: 6.7
 Requires PHP: 5.6
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -40,6 +40,8 @@ Please use default Wordpress plugin installation method through Wordpress plugin
 3. Backward connectivity test results and timings
 
 == Changelog ==
+
+1.5.1  - small CSS fix and typo correction, thanks Jim!
 
 1.5.0  - introducing ability to schedule benchmarks, performed at the background. CPU only.
 

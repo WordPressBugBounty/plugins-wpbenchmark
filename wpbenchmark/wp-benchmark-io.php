@@ -7,7 +7,7 @@ Plugin Name: WordPress Hosting Benchmark tool
 Plugin URI: https://wordpress.org/plugins/wpbenchmark/
 Description: Utility to benchmark and stresstest your Wordpress hosting server, its capabilities, speed and compare with other hosts.
 Text Domain: 
-Version: 1.5.0
+Version: 1.5.1
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
@@ -900,9 +900,9 @@ class wp_benchmark_io {
 
 
 
-				<h2 class='nav-tab-wrapper'>
+				<h2 class='nav-tab-wrapper' style='margin-bottom:20px;'>
 					<a class='nav-tab link-tab".$onrequest_tab_class."' href='?page=".$_REQUEST["page"]."&tab=onrequest'>On-request benchmark</a>
-					<a class='nav-tab link-tab".$schedulled_tab_class."' href='?page=".$_REQUEST["page"]."&tab=schedulled'>Schedulled benchmark
+					<a class='nav-tab link-tab".$schedulled_tab_class."' href='?page=".$_REQUEST["page"]."&tab=schedulled'>Scheduled benchmark
 						<span class='wpbenchmark-badge ".$badge_class."'>".$badge_txt."</span>
 					</a>
 				</h2>
@@ -940,11 +940,11 @@ class wp_benchmark_io {
 					<input type='hidden' name='_wpnonce' value='".wp_create_nonce("wp-benchmark-io-enable-schedulled")."'>
 
 					<div class='wpio-row'>
-					<div class='wpio-col-7' style='padding-left:2em; margin-top:25px; margin-bottom:10px;'>
+					<div class='wpio-col-7' style='padding-left:2em; margin-bottom:10px;'>
 						<div style='padding-bottom:10px; font-size:1.2em;'>
-							<label><input type='checkbox' name='attempt_to_ping_me' value='1'> - attempt to ping my Wordpress. Enable, if your Wordpress has very low traffic. My script will attempt to ping back to trigger schedulled event, but I can not promise accuracy.</label>
+							<label><input type='checkbox' name='attempt_to_ping_me' value='1'> - attempt to ping my Wordpress. Enable, if your Wordpress has very low traffic. My script will attempt to ping back to trigger scheduled event, but I can not promise accuracy.</label>
 						</div>
-						<button type='submit' class='wpio-btn wpio-btn-success wpio-btn-block wpio-btn-lg'>Enable schedulled benchmarking</button>
+						<button type='submit' class='wpio-btn wpio-btn-success wpio-btn-block wpio-btn-lg'>Enable scheduled benchmarking</button>
 					</div>
 					</div>
 				</form>
@@ -965,7 +965,7 @@ class wp_benchmark_io {
 						</div>
 
 						<div class='wpio-col-4' style='text-align:right;'>
-							<h3><button type='submit' href='#' class='wpio-btn wpio-btn-danger'>Disable schedulled benchmarking</button></h3>
+							<h3><button type='submit' href='#' class='wpio-btn wpio-btn-danger'>Disable scheduled benchmarking</button></h3>
 						</div>
 					</div>
 				</form>
@@ -985,16 +985,16 @@ class wp_benchmark_io {
 			print("
 				<hr style='margin-top:2em;'>
 				<div style='padding-left:2em;'>
-					<h3 style='margin-bottom:0px;'>Notes about schedulled benchmark</h3>
+					<h3 style='margin-bottom:0px;'>Notes about scheduled benchmark</h3>
 					<p>
 						<ul style='list-style: disclosure-closed;'>
 							<li>only CPU is being benchmarked</li>
-							<li>one schedulled request will run for 2 seconds and register number of completed iteractions</li>
+							<li>one scheduled request will run for 2 seconds and register number of completed iteractions</li>
 							<li>more iteractions means more CPU performance (per single core)</li>
-							<li>events are schedulled and registered no more than once per 5 minutes</li>
-							<li>ensure, that there are enough requests to your Wordpress or configured cronjob - without that schedulled events can not be executed</li>
+							<li>events are scheduled and registered no more than once per 5 minutes</li>
+							<li>ensure, that there are enough requests to your Wordpress or configured cronjob - without that scheduled events can not be executed</li>
 							<li>history will be stored for maximum 7 days to avoid excessive database storage</li>
-							<li>no information is being transferred outside your Wordpress - schedulled benchmarking is done purely locally</li>
+							<li>no information is being transferred outside your Wordpress - scheduled benchmarking is done purely locally</li>
 							<li>this page and graph above will not reload automatically ;)</li>
 							<li>your <a href='https://wpbenchmark.io' target=_blank>suggestions</a> and <a href='https://wordpress.org/support/plugin/wpbenchmark/reviews/' target=_blank>ratings</a> are always very weclome!</li>
 						</ul>
