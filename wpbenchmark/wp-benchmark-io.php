@@ -4,14 +4,14 @@
  */
 /*
 Plugin Name: WordPress Hosting Benchmark tool
-Plugin URI: https://wordpress.org/plugins/wpbenchmark/
-Description: Utility to benchmark and stresstest your Wordpress hosting server, its capabilities, speed and compare with other hosts.
+Plugin URI: https://wpbenchmark.io/
+Description: Benchmark your WordPress server's speed and capabilities, featuring scheduled performance monitoring and WordPress-specific tests for objective host comparisons.
 Text Domain: 
-Version: 1.5.1
+Version: 1.6.0
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
-Author URI: https://wpbenchmark.io
+Author URI: https://hosting.guru
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 */

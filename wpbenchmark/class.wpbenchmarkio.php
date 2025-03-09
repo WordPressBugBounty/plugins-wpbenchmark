@@ -324,11 +324,11 @@ class wpbenchmarkio {
 
 
 			$dsc_php_version_recommendation = "";
-			if (PHP_VERSION_ID<80000) {
+			if (PHP_VERSION_ID<80200) {
 				# version is less than PHP8
 				$dsc_php_version_recommendation = "
 				<div class='wpio-flex-row'>
-					<div class='wpio-flex-col'><strong>Tip:</strong> Your are using <strong>PHP ".phpversion()."</strong>, which is quite outdated. PHP8 offers great improvement in performance. If your plugins and theme support PHP8 - upgrading could improve responsivness of your website.</div>
+					<div class='wpio-flex-col'><strong>Tip:</strong> Your are using <strong>PHP ".phpversion()."</strong>, which is quite outdated. PHP 8.3+ offers great improvement in performance. If your plugins and theme support newer PHP version - upgrading could improve responsivness of your website.</div>
 				</div>
 				";
 
@@ -337,7 +337,7 @@ class wpbenchmarkio {
 
 				$dsc_php_version_recommendation = "
 				<div class='wpio-flex-row'>
-					<div class='wpio-flex-col'><strong>Tip:</strong> Your are using <strong>PHP ".phpversion()."</strong> - further upgrade to latest PHP 8.3 can improve your website performance.</div>
+					<div class='wpio-flex-col'><strong>" . PHP_VERSION_ID . " Tip:</strong> Your are using <strong>PHP ".phpversion()."</strong> - further upgrade to latest PHP 8.4 can improve your website performance.</div>
 				</div>
 				";
 
@@ -388,6 +388,7 @@ class wpbenchmarkio {
 			"filesystem"=>array("name"=>"Filesystem", "progress"=>0, "run_tests"=>array()),
 			"database"=>array("name"=>"Database", "progress"=>0, "run_tests"=>array()),
 			"object_cache"=>array("name"=>"Object cache", "progress"=>0, "run_tests"=>array()),
+			"wordpress"=>array("name"=>"Wordpress core", "progress"=>0, "run_tests"=>array()),
 			"network"=>array("name"=>"Network", "progress"=>0, "run_tests"=>array())			
 		);
 
@@ -402,6 +403,9 @@ class wpbenchmarkio {
 		# new functions as of 26.february 2024
 		$functions_to_run[] = array("type"=>"cpu_memory", "function"=>"test_fibo_recursive", "name"=>"Recursive mathematical calculations", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/fibonacci-recursive/", "test_ratio"=>2);
 		$functions_to_run[] = array("type"=>"cpu_memory", "function"=>"test_fibo_iterative", "name"=>"Iterative mathematical calculations", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/fibonacci-iterative/", "test_ratio"=>2);
+		# new functions 8.march.2025
+		$functions_to_run[] = array("type"=>"cpu_memory", "function"=>"test_cpu_floating_operations", "name"=>"Floating point operations", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/cpu-floating-operations/", "test_ratio"=>3);
+		# $functions_to_run[] = array("type"=>"cpu_memory", "function"=>"test_cpu_string_operations", "name"=>"String manipulations", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/cpu-string-operations/", "test_ratio"=>3);
 
 		
 		$functions_to_run[] = array("type"=>"filesystem", "function"=>"test_filewrite", "name"=>"Filesystem write ability", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/filesystem-write-speed/", "test_ratio"=>3);
@@ -421,6 +425,23 @@ class wpbenchmarkio {
 		$functions_to_run[] = array("type"=>"object_cache", "function"=>"test_oc_persistent_write", "name"=>"Persistent object cache write", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/has-persistent-object-cache/", "test_ratio"=>1, "prepare_function"=>"reset_and_prepare_object_cache");
 		$functions_to_run[] = array("type"=>"object_cache", "function"=>"test_oc_persistent_read", "name"=>"Persistent object cache read", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/has-persistent-object-cache/", "test_ratio"=>1, "prepare_function"=>"");
 		$functions_to_run[] = array("type"=>"object_cache", "function"=>"test_oc_persistent_mixed", "name"=>"Persistent object cache mixed usage", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/has-persistent-object-cache/", "test_ratio"=>1, "cleanup_function"=>"fill_object_cache");
+
+
+		# Wordpress tailored tests
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_shortcode_processing", "name"=>"Shortcode processing", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/shortcode-processing/", "test_ratio"=>3, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_hooks_system", "name"=>"Wordpress Hooks", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-hooks/", "test_ratio"=>3, "prepare_function"=>"");
+		
+		# Transients should be treated in a same way, as OPCache - Write and Read as separate tests.
+		# $functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_transient_operations", "name"=>"Transient benchmark", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-transients/", "test_ratio"=>2, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_option_operations", "name"=>"Wordpress option manipulation", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-option-operations/", "test_ratio"=>2, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_regex_wordpress", "name"=>"REGEX string processing", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-regex/", "test_ratio"=>3, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_taxonomy_processing", "name"=>"Taxonomy benchmark", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-taxonomy-benchmark/", "test_ratio"=>2, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_capability_checks", "name"=>"Object capability benchmark", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-capability-benchmark/", "test_ratio"=>2, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_content_filtering", "name"=>"Content filtering", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-content-filtering/", "test_ratio"=>2, "prepare_function"=>"");
+		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_json_processing", "name"=>"JSON manipulations", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/json-manipulations/", "test_ratio"=>2, "prepare_function"=>"");
+		# $functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_template_processing", "name"=>"Template processing", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-template-processing/", "test_ratio"=>2, "prepare_function"=>"");
+
+
 
 		$functions_to_run[] = array("type"=>"network", "function"=>"test_network_download", "name"=>"Network download speed test", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/network-download-speedtest/", "test_ratio"=>2);
 
@@ -683,8 +704,598 @@ class wpbenchmarkio {
 		$result = $this->wpbenchmark_fibonacci_iterative(500);	
 		$result = $this->test_cpu_regex(1, 1, 5120);
 
+		# $result = $this->test_wordpress_json_processing(1);
+		# $result = $this->test_wordpress_shortcode_processing(1,1);
+		# $result = $this->test_cpu_floating_operations(500);
+
 		return true;
 	}
+
+
+
+	# floating point
+	function test_cpu_floating_operations($iterations = 200000) {
+	    
+	    for ($j = 0; $j < 150; $j++) {
+	    	$result = 0;
+		    for ($i = 0; $i < $iterations; $i++) {
+		        $result += sin($i) * cos($i) / sqrt($i + 1);
+		    }
+		}
+	    
+	    return true;
+	}
+
+
+	# string processing and memory manipulations
+	function test_cpu_string_operations($iterations = 2000000) {
+	    # $start = microtime(true);
+	    $text = "The quick brown fox jumps over the lazy dog.";
+	    for ($i = 0; $i < $iterations; $i++) {
+	        $text = strrev($text);
+	        $text = str_replace("o", "0", $text);
+	        $text = strtoupper($text);
+	    }
+	    #return microtime(true) - $start;
+	    return true;
+	}
+
+
+
+	###############
+	# Wordpress specific
+
+	# Transient benchmark
+
+	/**
+	 * 1. WordPress Shortcode Processing
+	 * Tests CPU performance with WordPress shortcode parsing and rendering
+	 */
+	function test_wordpress_shortcode_processing($nested_level=4, $repeat_times=15) {
+	    // Create a complex nested shortcode string
+	    # $nested_level = 4;
+	    $content = "Start content ";
+	    
+	    // Generate nested shortcodes - this mimics real WordPress content
+	    for ($i = 0; $i < $nested_level; $i++) {
+	        $content .= "[wpbenchmak_columns width=\"1/2\"]" . $content . "[/wpbenchmak_columns]";
+	        $content .= "[wpbenchmak_row]" . $content . "[/wpbenchmak_row]";
+	        $content .= "[wpbenchmak_section pf=\"10px\"]" . $content . "[/wpbenchmak_section]";
+	        $content .= "[wpbenchmak_tabs]" . $content . "[/wpbenchmak_tabs]";
+	    }
+	    
+	    // Add some custom shortcodes to process
+	    add_shortcode('wpbenchmak_columns', function($atts, $content = '') {
+	        return '<div class="column ' . $atts['width'] . '">' . do_shortcode($content) . '</div>';
+	    });
+	    
+	    add_shortcode('wpbenchmak_row', function($atts, $content = '') {
+	        return '<div class="row">' . do_shortcode($content) . '</div>';
+	    });
+	    
+	    add_shortcode('wpbenchmak_section', function($atts, $content = '') {
+	        return '<section style="padding:' . $atts['padding'] . '">' . do_shortcode($content) . '</section>';
+	    });
+	    
+	    add_shortcode('wpbenchmak_tabs', function($atts, $content = '') {
+	        return '<div class="tabs">' . do_shortcode($content) . '</div>';
+	    });
+	    
+	    // Process shortcodes multiple times to benchmark CPU
+	    for ($i = 0; $i < $repeat_times; $i++) {
+	        $processed = do_shortcode($content);
+	    }
+	    
+	    // Clean up - remove our test shortcodes
+	    remove_shortcode('wpbenchmak_columns');
+	    remove_shortcode('wpbenchmak_row');
+	    remove_shortcode('wpbenchmak_section');
+	    remove_shortcode('wpbenchmak_tabs');
+	    
+	    return true;
+	}
+
+	/**
+	 * 2. WordPress Hooks System Benchmark
+	 * Tests how efficiently WordPress can handle hooks and filters
+	 */
+	function test_wordpress_hooks_system() {
+	    // Create a test function to be called
+	    $test_function = function($value) {
+	        return md5($value . rand(1000, 9999));
+	    };
+	    
+	    // Add many hooks with different priorities
+	    for ($i = 0; $i < 100; $i++) {
+	        add_filter('test_benchmark_filter', $test_function, $i);
+	    }
+	    
+	    // Execute filter multiple times with different values
+	    for ($i = 0; $i < 100000; $i++) {
+	        $result = apply_filters('test_benchmark_filter', "test_value_$i");
+	    }
+	    
+	    // Clean up all hooks to avoid side effects
+	    remove_all_filters('test_benchmark_filter');
+	    
+	    return true;
+	}
+
+	/**
+	 * 3. WordPress Transient API Benchmark
+	 * Tests CPU performance with serialization/deserialization of complex data
+	 */
+	function test_wordpress_transient_operations() {
+	    // Generate complex test data
+	    $complex_data = array();
+	    for ($i = 0; $i < 100; $i++) {
+	        $complex_data[] = array(
+	            'id' => $i,
+	            'title' => md5(rand(1000, 9999)),
+	            'content' => str_repeat('WordPress is a state-of-the-art publishing platform. ', 5),
+	            'meta' => array(
+	                'key1' => rand(1000, 9999),
+	                'key2' => str_repeat('a', rand(10, 30)),
+	                'key3' => array('nested' => true, 'count' => $i)
+	            )
+	        );
+	    }
+	    
+	    // Set and get transients repeatedly
+	    for ($i = 0; $i < 10000; $i++) {
+	        // Mix of operations
+	        set_transient('benchmark_transient_' . $i, $complex_data, 60);
+	        $result = get_transient('benchmark_transient_' . $i);
+	        delete_transient('benchmark_transient_' . $i);
+	    }
+	    
+	    return true;
+	}
+
+	/**
+	 * 4. WordPress Option API Benchmark
+	 * Tests CPU with options table operations (serialization/deserialization)
+	 */
+	function test_wordpress_option_operations() {
+	    // Create a large, complex option
+	    $large_option = array();
+	    for ($i = 0; $i < 1000; $i++) {
+	        $large_option["key_$i"] = array(
+	            'name' => "Test name $i",
+	            'value' => str_repeat('test value ', 10),
+	            'attributes' => array(
+	                'color' => '#' . dechex(rand(0, 16777215)),
+	                'weight' => rand(100, 900),
+	                'nested' => array(
+	                    'level' => $i,
+	                    'active' => ($i % 2 == 0)
+	                )
+	            )
+	        );
+	    }
+	    
+	    // Benchmark option updates and gets
+	    for ($i = 0; $i < 200; $i++) {
+	        update_option('benchmark_option_' . $i, $large_option);
+	        $retrieved = get_option('benchmark_option_' . $i);
+	        delete_option('benchmark_option_' . $i);
+	    }
+	    
+	    return true;
+	}
+
+	/**
+	 * 5. Regular Expression Performance
+	 * WordPress uses regex extensively for content processing
+	 */
+	function test_wordpress_regex_wordpress() {
+	    // Create content that mimics WordPress post content with shortcodes, HTML, etc.
+	    $content = '';
+	    for ($i = 0; $i < 200; $i++) {
+	        $content .= "<p>This is paragraph {$i} with [shortcode attr=\"value\"]some content[/shortcode].</p>\n";
+	        $content .= "<div class=\"class-{$i}\" data-attr=\"test\">\n";
+	        $content .= "  <h2>Heading {$i}</h2>\n";
+	        $content .= "  <img src=\"https://example.com/image-{$i}.jpg\" alt=\"Image {$i}\">\n";
+	        $content .= "  <!-- wp:paragraph {\"align\":\"center\"} -->\n";
+	        $content .= "  <p>This is a Gutenberg paragraph with alignment.</p>\n";
+	        $content .= "  <!-- /wp:paragraph -->\n";
+	        $content .= "</div>\n";
+	    }
+	    
+	    // Run regex patterns similar to what WordPress uses
+	    for ($i = 0; $i < 15000; $i++) {
+	        // Find shortcodes
+	        preg_match_all('/\[([^\s\]]+)([^\]]*)\](.*?)\[\/\1\]/s', $content, $shortcodes);
+	        
+	        // Extract Gutenberg blocks
+	        preg_match_all('/<!-- wp:([^\s]+) (.*?) -->(.*?)<!-- \/wp:\1 -->/s', $content, $blocks);
+	        
+	        // Find all images
+	        preg_match_all('/<img[^>]+src="([^"]+)"[^>]*>/i', $content, $images);
+	        
+	        // Replace URLs with https
+	        $content_https = preg_replace('/(http:\/\/[^\s"\']+)/', 'https://\\1', $content);
+	        
+	        // Auto-paragraph function (simplified version of wpautop)
+	        $paragraphed = preg_replace('/<p>(.*?)<\/p>/', "\n\n\\1\n\n", $content);
+	        $paragraphed = preg_replace('/\n\n+/', "\n\n", $paragraphed);
+	        $paragraphed = preg_replace('/\n\n(.+?)(?=\n\n|\z)/s', "<p>\\1</p>", $paragraphed);
+	    }
+	    
+	    return true;
+	}
+
+	/**
+	 * 6. Taxonomy Relationship Processing
+	 * Simulates WordPress taxonomy operations
+	 */
+	function test_wordpress_taxonomy_processing() {
+	    $terms = array();
+	    $objects = array();
+	    
+	    // Create mock taxonomy data
+	    for ($i = 0; $i < 200; $i++) {
+	        $terms[] = array(
+	            'term_id' => $i,
+	            'name' => "Term $i",
+	            'slug' => "term-$i",
+	            'taxonomy' => ($i % 3 == 0) ? 'category' : 'post_tag'
+	        );
+	    }
+	    
+	    // Create mock objects (posts)
+	    for ($i = 0; $i < 500; $i++) {
+	        $objects[] = array(
+	            'ID' => $i,
+	            'post_title' => "Post $i",
+	            'post_type' => ($i % 5 == 0) ? 'page' : 'post'
+	        );
+	    }
+	    
+	    // Create relationships between terms and objects
+	    $relationships = array();
+	    for ($i = 0; $i < 2500; $i++) {
+	        $term_id = rand(0, 99);
+	        $object_id = rand(0, 499);
+	        $relationships[] = array(
+	            'term_id' => $term_id,
+	            'object_id' => $object_id
+	        );
+	    }
+	    
+	    // Process taxonomy relationships
+	    for ($i = 0; $i < 10000; $i++) {
+	        // Find objects for a specific term (simulating get_objects_in_term)
+	        $term_id = rand(0, 99);
+	        $objects_in_term = array_filter($relationships, function($rel) use ($term_id) {
+	            return $rel['term_id'] == $term_id;
+	        });
+	        $object_ids = array_map(function($rel) {
+	            return $rel['object_id'];
+	        }, $objects_in_term);
+	        
+	        // Find terms for a specific object (simulating wp_get_object_terms)
+	        $object_id = rand(0, 499);
+	        $terms_for_object = array_filter($relationships, function($rel) use ($object_id) {
+	            return $rel['object_id'] == $object_id;
+	        });
+	        $term_ids = array_map(function($rel) {
+	            return $rel['term_id'];
+	        }, $terms_for_object);
+	    }
+	    
+	    return true;
+	}
+
+	/**
+	 * 7. WordPress Capability Checks
+	 * Simulates WordPress permission checking which is CPU-intensive
+	 */
+	function test_wordpress_capability_checks() {
+	    // Create mock roles and capabilities
+	    $roles = array(
+	        'administrator' => array(
+	            'read' => true,
+	            'edit_posts' => true,
+	            'delete_posts' => true,
+	            'publish_posts' => true,
+	            'edit_published_posts' => true,
+	            'edit_others_posts' => true,
+	            'delete_others_posts' => true,
+	            'manage_options' => true,
+	            'moderate_comments' => true,
+	            // Add many more caps
+	            'custom_cap_1' => true,
+	            'custom_cap_2' => true,
+	            'level_10' => true,
+	        ),
+	        'editor' => array(
+	            'read' => true,
+	            'edit_posts' => true,
+	            'delete_posts' => true,
+	            'publish_posts' => true,
+	            'edit_published_posts' => true,
+	            'edit_others_posts' => true,
+	            'level_7' => true,
+	            // More caps
+	        ),
+	        'author' => array(
+	            'read' => true,
+	            'edit_posts' => true,
+	            'delete_posts' => true,
+	            'publish_posts' => true,
+	            'level_2' => true,
+	        ),
+	        'contributor' => array(
+	            'read' => true,
+	            'edit_posts' => true,
+	            'level_1' => true,
+	        ),
+	        'subscriber' => array(
+	            'read' => true,
+	            'level_0' => true,
+	        )
+	    );
+	    
+	    // Add 20 custom roles with various capabilities
+	    for ($i = 0; $i < 200; $i++) {
+	        $custom_role = array('read' => true);
+	        for ($j = 0; $j < 30; $j++) {
+	            $cap = "custom_cap_" . $j;
+	            $custom_role[$cap] = (rand(0, 1) == 1);
+	        }
+	        $roles["custom_role_$i"] = $custom_role;
+	    }
+	    
+	    // Create mock users with different roles
+	    $users = array();
+	    for ($i = 0; $i < 1000; $i++) {
+	        $role_keys = array_keys($roles);
+	        $role = $role_keys[array_rand($role_keys)];
+	        
+	        $users[] = array(
+	            'ID' => $i,
+	            'user_login' => "user$i",
+	            'role' => $role,
+	            'roles' => array($role),
+	            'capabilities' => $roles[$role]
+	        );
+	    }
+	    
+	    // Run capability checks
+	    $check_caps = array(
+	        'read', 'edit_posts', 'publish_posts', 'delete_others_posts', 
+	        'manage_options', 'moderate_comments', 'custom_cap_1'
+	    );
+	    
+	    for ($i = 0; $i < 2000000; $i++) {
+	        $user = $users[array_rand($users)];
+	        $cap = $check_caps[array_rand($check_caps)];
+	        
+	        // Simulate capability check (simplified map_meta_cap logic)
+	        $has_cap = isset($user['capabilities'][$cap]) && $user['capabilities'][$cap];
+	        
+	        // Check for level capabilities (WordPress backward compatibility)
+	        if (!$has_cap) {
+	            foreach ($user['capabilities'] as $user_cap => $has) {
+	                if (strpos($user_cap, 'level_') === 0 && $has) {
+	                    $level = intval(substr($user_cap, 6));
+	                    // Some logic based on level
+	                    if ($cap == 'read' && $level >= 0) {
+	                        $has_cap = true;
+	                    } elseif ($cap == 'edit_posts' && $level >= 1) {
+	                        $has_cap = true;
+	                    } elseif ($cap == 'publish_posts' && $level >= 3) {
+	                        $has_cap = true;
+	                    }
+	                }
+	            }
+	        }
+	    }
+	    
+	    return true;
+	}
+
+	/**
+	 * 8. WordPress Post Content Filtering
+	 * Tests performance of content filters which are used extensively
+	 */
+	function test_wordpress_content_filtering() {
+	    // Create large post content
+	    $post_content = str_repeat("WordPress is a state-of-the-art publishing platform. ", 100);
+	    $post_content .= str_repeat("<p>This is a paragraph with <a href=\"https://example.com\">links</a> and <strong>formatting</strong>.</p>", 50);
+	    $post_content .= str_repeat("[gallery ids=\"1,2,3,4,5\"]", 10);
+	    $post_content .= str_repeat("<!-- wp:paragraph --><p>This is a Gutenberg paragraph.</p><!-- /wp:paragraph -->", 30);
+	    
+	    // Add content filters (simulating WordPress behavior)
+	    add_filter('the_content', 'wptexturize');
+	    add_filter('the_content', 'convert_smilies');
+	    add_filter('the_content', 'convert_chars');
+	    add_filter('the_content', 'wpautop');
+	    add_filter('the_content', 'shortcode_unautop');
+	    add_filter('the_content', 'do_shortcode', 11);
+	    
+	    // Custom content filter
+	    add_filter('the_content', function($content) {
+	        // Replace URLs
+	        $content = preg_replace('/(https?:\/\/[^\s"\'<>]+)/', '<a href="$1">$1</a>', $content);
+	        // Add heading anchors
+	        $content = preg_replace('/(<h[2-6][^>]*>)(.+?)(<\/h[2-6]>)/', '$1<a id="$2">$2</a>$3', $content);
+	        return $content;
+	    });
+	    
+	    // Process content multiple times
+	    for ($i = 0; $i < 2000; $i++) {
+	        $filtered_content = apply_filters('the_content', $post_content);
+	    }
+	    
+	    // Clean up
+	    remove_all_filters('the_content');
+	    
+	    return true;
+	}
+
+	/**
+	 * 9. JSON Processing (WP REST API)
+	 * Tests CPU performance with JSON operations
+	 */
+	function test_wordpress_json_processing($repeat_times=500) {
+	    // Create data structure similar to WordPress REST API responses
+	    $posts = array();
+	    for ($i = 0; $i < 500; $i++) {
+	        $posts[] = array(
+	            'id' => $i,
+	            'date' => date('Y-m-d H:i:s', time() - rand(0, 10000000)),
+	            'date_gmt' => date('Y-m-d H:i:s', time() - rand(0, 10000000)),
+	            'guid' => array('rendered' => 'https://example.com/?p=' . $i),
+	            'modified' => date('Y-m-d H:i:s', time() - rand(0, 1000000)),
+	            'modified_gmt' => date('Y-m-d H:i:s', time() - rand(0, 1000000)),
+	            'slug' => 'post-' . $i,
+	            'status' => 'publish',
+	            'type' => 'post',
+	            'link' => 'https://example.com/post-' . $i,
+	            'title' => array('rendered' => 'Post Title ' . $i),
+	            'content' => array(
+	                'rendered' => '<p>This is test content for post ' . $i . '</p>',
+	                'protected' => false
+	            ),
+	            'excerpt' => array(
+	                'rendered' => 'Excerpt for post ' . $i,
+	                'protected' => false
+	            ),
+	            'author' => rand(1, 10),
+	            'featured_media' => rand(100, 200),
+	            'comment_status' => 'open',
+	            'ping_status' => 'open',
+	            'sticky' => false,
+	            'template' => '',
+	            'format' => 'standard',
+	            'meta' => array(
+	                'custom_meta_1' => rand(1000, 9999),
+	                'custom_meta_2' => 'value ' . $i
+	            ),
+	            'categories' => array(rand(1, 5), rand(6, 10)),
+	            'tags' => array(rand(11, 20), rand(21, 30), rand(31, 40)),
+	            '_links' => array(
+	                'self' => array(
+	                    array('href' => 'https://example.com/wp-json/wp/v2/posts/' . $i)
+	                ),
+	                'collection' => array(
+	                    array('href' => 'https://example.com/wp-json/wp/v2/posts')
+	                ),
+	                'about' => array(
+	                    array('href' => 'https://example.com/wp-json/wp/v2/types/post')
+	                ),
+	                'author' => array(
+	                    array('href' => 'https://example.com/wp-json/wp/v2/users/' . rand(1, 10))
+	                ),
+	                'replies' => array(
+	                    array('href' => 'https://example.com/wp-json/wp/v2/comments?post=' . $i)
+	                )
+	            )
+	        );
+	    }
+	    
+	    // Encode and decode JSON repeatedly
+	    for ($i = 0; $i < $repeat_times; $i++) {
+	        // Encode to JSON
+	        $json = json_encode($posts);
+	        
+	        // Decode back to PHP
+	        $decoded = json_decode($json, true);
+	        
+	        // Process the data
+	        $processed = array_map(function($post) {
+	            $post['processed_title'] = strip_tags($post['title']['rendered']);
+	            $post['word_count'] = str_word_count(strip_tags($post['content']['rendered']));
+	            return $post;
+	        }, $decoded);
+	    }
+	    
+	    return true;
+	}
+
+	/**
+	 * 10. Template Processing
+	 * Tests CPU with template file operations similar to WordPress theme system
+	 */
+	function test_wordpress_template_processing() {
+	    // Create mock template data
+	    $template_hierarchy = array(
+	        'single.php',
+	        'single-post.php',
+	        'single-post-{slug}.php',
+	        'page.php',
+	        'page-{slug}.php',
+	        'page-{id}.php',
+	        'category.php',
+	        'category-{slug}.php',
+	        'tag.php',
+	        'tag-{slug}.php',
+	        'author.php',
+	        'author-{nicename}.php',
+	        'date.php',
+	        'archive.php',
+	        'search.php',
+	        'attachment.php',
+	        'attachment-{mime-type}.php',
+	        'index.php'
+	    );
+	    
+	    // Create template parts
+	    $template_parts = array(
+	        'header' => "<header>\n  <div class=\"site-branding\">\n    <h1>{{site_title}}</h1>\n  </div>\n  <nav>{{menu}}</nav>\n</header>",
+	        'footer' => "<footer>\n  <div class=\"site-info\">{{copyright}}</div>\n</footer>",
+	        'content' => "<article id=\"post-{{id}}\" class=\"{{post_class}}\">\n  <header>\n    <h2>{{title}}</h2>\n  </header>\n  <div class=\"entry-content\">{{content}}</div>\n</article>",
+	        'sidebar' => "<aside class=\"widget-area\">\n  <section class=\"widget\">{{widget_content}}</section>\n</aside>"
+	    );
+	    
+	    // Create replacement variables
+	    $replacements = array(
+	        '{{site_title}}' => 'My WordPress Site',
+	        '{{menu}}' => '<ul><li><a href="#">Home</a></li><li><a href="#">About</a></li><li><a href="#">Contact</a></li></ul>',
+	        '{{copyright}}' => '© ' . date('Y') . ' My WordPress Site',
+	        '{{id}}' => '123',
+	        '{{post_class}}' => 'post-123 type-post status-publish',
+	        '{{title}}' => 'Sample Post Title',
+	        '{{content}}' => '<p>This is sample content for the post.</p>',
+	        '{{widget_content}}' => '<h3>Recent Posts</h3><ul><li><a href="#">Post 1</a></li><li><a href="#">Post 2</a></li></ul>'
+	    );
+	    
+	    // Simulate WordPress template loading and processing
+	    for ($i = 0; $i < 200; $i++) {
+	        // Select a random template type
+	        $template_type = $template_hierarchy[array_rand($template_hierarchy)];
+	        
+	        // Get all template parts
+	        $template = '';
+	        foreach ($template_parts as $part) {
+	            $template .= $part . "\n";
+	        }
+	        
+	        // Process the template - replace variables
+	        foreach ($replacements as $placeholder => $value) {
+	            $template = str_replace($placeholder, $value, $template);
+	        }
+	        
+	        // Process conditional logic (simplified)
+	        if (strpos($template_type, 'single') === 0) {
+	            $template = str_replace('{{is_single}}', 'true', $template);
+	            $template = preg_replace('/\{\{if_single\}\}(.*?)\{\{\/if_single\}\}/s', '$1', $template);
+	        } else {
+	            $template = str_replace('{{is_single}}', 'false', $template);
+	            $template = preg_replace('/\{\{if_single\}\}(.*?)\{\{\/if_single\}\}/s', '', $template);
+	        }
+	        
+	        // Apply WordPress-like filters
+	        $template = str_replace('&quot;', '"', $template);
+	        $template = str_replace('&lt;', '<', $template);
+	        $template = str_replace('&gt;', '>', $template);
+	        $template = str_replace('&amp;', '&', $template);
+	    }
+	    
+	    return true;
+	}	
 
 
 
@@ -754,6 +1365,41 @@ class wpbenchmarkio {
 
 
 	function test_filewrite() {
+	    $tmp_folder = $this->tmp_folder_name();
+	    $chunkSize = 1024 * 1024; // 1MB per write
+	    $fileSize = 50 * 1024 * 1024; // 50MB per file
+	    $numFiles = 20; // 20 test files
+
+	    $fn = $tmp_folder . "/tmp.filewrite";
+
+	    // Generate a 1MB string using 1KB chunks
+	    $oneMB_block = "";
+	    for ($i = 0; $i < 1024; $i++) { 
+	        $oneMB_block .= $this->get_1kb_text(); 
+	    }
+
+	    for ($i = 0; $i < $numFiles; $i++) {
+	        if (file_exists($fn)) {
+	            unlink($fn);
+	        }
+
+	        $fp = fopen($fn, "w");
+	        if ($fp) {
+	            $chunks = $fileSize / $chunkSize; // 50 writes per file
+
+	            for ($k = 0; $k < $chunks; $k++) {
+	                fwrite($fp, $oneMB_block);
+	            }
+
+	            fflush($fp);
+	            fclose($fp);
+	        }
+	    }
+
+	    return true;
+	}
+
+	function test_filewrite_old() {
 		$tmp_folder = $this->tmp_folder_name();
 		#$this->clean_tmp_folder();
 
@@ -784,7 +1430,7 @@ class wpbenchmarkio {
 			for ($k=0;$k<50;$k++)
 				fwrite($fp, $write_content);
 
-
+			fflush($fp);
 			fclose($fp);
 
 			clearstatcache();
@@ -805,7 +1451,32 @@ class wpbenchmarkio {
 	}
 
 
+
 	function test_filewrite_smallfiles() {
+	    $tmp_folder = $this->tmp_folder_name();
+	    $numFiles = 500; // Total files to create
+	    $fileSize = 150 * 1024; // 150KB per file
+
+	    // Generate 150KB block once using 1KB chunks
+	    $write_content = "";
+	    for ($m = 0; $m < 150; $m++) { 
+	        $write_content .= $this->get_1kb_text(); 
+	    }
+
+	    for ($i = 0; $i < $numFiles; $i++) {
+	        $fn = $tmp_folder . "/tmp.smallfile_" . $i; // Sequential naming
+
+	        $fp = fopen($fn, "w");
+	        if ($fp) {
+	            fwrite($fp, $write_content); // Write 150KB in one call
+	            fflush($fp);
+	            fclose($fp);
+	        }
+	    }
+
+	    return true;
+	}
+	function test_filewrite_smallfiles_old() {
 		$tmp_folder = $this->tmp_folder_name();
 		#$this->clean_tmp_folder();
 

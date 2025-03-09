@@ -1,11 +1,12 @@
 === WordPress Hosting Benchmark tool ===
 Contributors: anton.aleksandrov
-Donate link: https://wpbenchmark.io/
-Tags: benchmark, test, speed, hosting, performance
+Plugin URI: https://wpbenchmark.io/
+Donate link: https://wpbenchmark.io/donate/
+Tags: benchmark, speed, hosting, performance, optimization
 Requires at least: 4.0
 Tested up to: 6.7
 Requires PHP: 5.6
-Stable tag: 1.5.1
+Stable tag: 1.6.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -13,17 +14,33 @@ Benchmark your hosting server CPU, memory and disk, compare with others.
 
 == Description ==
 
-This plugin will help you to test your hosting server. By running unified tests, you can see and compare different servers or hosting platforms. It does not require any special additional software or tools, as all tests are executed from within PHP - we simply measure time, that each test take. 
-
-All tests are grouped and target different aspects or components - CPU, memory, filesystem, database performance, wordpress object cache, network speed. 
-
-From version 1.2 (released on 27.april.2022) reverse connectivity tests are performed - we will connect to you wordpress and measure connection time. Such tests are performed during running local bechmarks and a short time after, so you can analyze, how big impact single heavy task may have on page load time.
+This plugin empowers you to thoroughly evaluate your WordPress hosting server's performance with detailed, objective metrics. Simple and free to use - our mission is to help regular WordPress users determine if they're actually getting the hosting quality they've paid for.
+## Comprehensive Testing Suite
+*   **CPU & Processing Power:** Tests both raw processing speed and WordPress-specific functions
+*   **Memory Usage & Efficiency:** Evaluates how effectively your server handles memory-intensive operations
+*   **Filesystem Performance:** Measures file read/write capabilities critical for WordPress
+*   **Database Operations:** Tests query execution speed and complex joins
+*   **WordPress Object Cache:** Evaluates persistent cache performance
+*   **Network Speed:** Measures connection responsiveness
+## Advanced Features
+*   **Scheduled Benchmarking:** Automatically run tests at regular intervals to monitor your hosting performance over time and identify patterns or degradation
+*   **WordPress Core Function Tests:** Specifically tests WordPress operations like shortcode processing, hook execution, and transient handling
+*   **Comparative Analysis:** See how your hosting stacks up against others with similar configurations
+*   **Performance Scoring:** Get an objective rating that helps you understand your server's capabilities
+## Easy to Use
+No technical expertise or additional software required! All tests run directly within WordPress, using your existing PHP installation. Simply install the plugin, click to run benchmarks, and get detailed results you can understand.
+## Make Informed Decisions
+Whether you're troubleshooting slow site performance, evaluating a new hosting provider, or simply curious about your current hosting quality, this tool provides the concrete data you need to make smart decisions about your WordPress hosting.
+Don't settle for underwhelming hosting performance. Use WordPress Hosting Benchmark Tool today to discover exactly what you're getting from your hosting provider.
 
 
 
 == Frequently Asked Questions ==
 Q: What is being tested?
 A: CPU, memory bandwidth, disk speed, persistent object cache, network download speed.
+
+Q: Which parameter is the most important?
+A: CPU. Wordpress speed depends on fast CPU and in particular - CPU generation and speed (GHz). PHP version of your website also matters - newer PHP versions tend to do the same job faster.
 
 Q: What should be our considerations, before using this plugin?
 A: Plugin will generate large temporary files and run a lot SQL queries. You should make sure, your hosting has at least 500MB of free disk space and that your database server allows large number of queries. All temporary files and database tables will be deleted after benchmark is complete.
@@ -40,6 +57,8 @@ Please use default Wordpress plugin installation method through Wordpress plugin
 3. Backward connectivity test results and timings
 
 == Changelog ==
+
+1.6.0  - New section: Benchmark using Wordpress core functions. Optimized filesystem benchmarks to reduce CPU and memory overhead.
 
 1.5.1  - small CSS fix and typo correction, thanks Jim!
 
