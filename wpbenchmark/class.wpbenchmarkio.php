@@ -760,7 +760,7 @@ class wpbenchmarkio {
 	    for ($i = 0; $i < $nested_level; $i++) {
 	        $content .= "[wpbenchmak_columns width=\"1/2\"]" . $content . "[/wpbenchmak_columns]";
 	        $content .= "[wpbenchmak_row]" . $content . "[/wpbenchmak_row]";
-	        $content .= "[wpbenchmak_section pf=\"10px\"]" . $content . "[/wpbenchmak_section]";
+	        $content .= "[wpbenchmak_section padding=\"10px\"]" . $content . "[/wpbenchmak_section]";
 	        $content .= "[wpbenchmak_tabs]" . $content . "[/wpbenchmak_tabs]";
 	    }
 	    
