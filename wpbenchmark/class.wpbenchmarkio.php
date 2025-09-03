@@ -593,14 +593,21 @@ class wpbenchmarkio {
 		
 		# 30 720 000
 		# 1000000
-		for ($s=0;$s<$s_max;$s++) {
 
-			$ahex_capital.=strtoupper($ahex[rand(0,30000000)]);
+		$j_max = $s_max/10000;
+		$i_max = $s_max/$j_max;
 
-			$temp_value = md5($ahex_capital);
+		for ($j=0;$j<$j_max;$j++) {
 
-			if (strlen($ahex_capital)>10240)
-				$ahex_capital="";
+			for ($i=0;$i<$i_max;$i++) {
+
+				$ahex_capital.=strtoupper($ahex[rand(0,30000000)]);
+
+				$temp_value = md5($ahex_capital);
+
+				if (strlen($ahex_capital)>10240)
+					$ahex_capital="";
+			}
 
 			# trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
@@ -644,11 +651,6 @@ class wpbenchmarkio {
 		$data_splitted = array();
 		foreach($data as $big_string) {
 			
-			# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $this->max_time_reached_return_code;
-			# end trying to eliminate too long execution times
-
 			$data_splitted[]=explode(",", $big_string);
 			array_merge($data_splitted_2, preg_split("/[\s,]+/", $big_string));
 		}
@@ -657,33 +659,34 @@ class wpbenchmarkio {
 
 		foreach($data_splitted as $rk=>$r_array) {
 			sort($data_splitted[$rk]);
-
-			# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $this->max_time_reached_return_code;
-			# end trying to eliminate too long execution times
 		}
+
+		# trying to eliminate too long execution times
+		if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+			return $this->max_time_reached_return_code;
+		# end trying to eliminate too long execution times
 
 		foreach($data_splitted_2 as $rk=>$rv) {
 			$data_splitted_2[$rk]=md5(md5($rv));
-
-			# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $this->max_time_reached_return_code;
-			# end trying to eliminate too long execution times
 		}
 
+		# trying to eliminate too long execution times
+		if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+			return $this->max_time_reached_return_code;
+		# end trying to eliminate too long execution times
+
 		sort($data_splitted_2);
+
+
+		# trying to eliminate too long execution times
+		if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+			return $this->max_time_reached_return_code;
+		# end trying to eliminate too long execution times
 
 		foreach($data_splitted as $rk=>$r_array) {
 			foreach($r_array as $sk=>$sv) {
 				$data_splitted[$rk][$sk]=md5($sv);
 			}
-
-			# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $this->max_time_reached_return_code;
-			# end trying to eliminate too long execution times
 		}
 
 		unset($data);
@@ -693,14 +696,17 @@ class wpbenchmarkio {
 
 
 	function wpbenchmark_fibonacci_recursive($n) {
-	    if ($n <= 1) {
+
+		if ($n <= 1) {
 	        return $n;
 	    } else {
 
-	    	# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $n;
-			# end trying to eliminate too long execution times
+	    	if ($n%5==0) {
+				# trying to eliminate too long execution times
+				if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+					return $this->max_time_reached_return_code;
+				# end trying to eliminate too long execution times
+			}
 
 	        return $this->wpbenchmark_fibonacci_recursive($n - 1) + $this->wpbenchmark_fibonacci_recursive($n - 2);
 	    }
@@ -725,13 +731,17 @@ class wpbenchmarkio {
 	}
 
 	function test_fibo_iterative() {
-		for ($i=1;$i<100000;$i++) {
-		    $result = $this->wpbenchmark_fibonacci_iterative(1000); // Adjust the input value as needed
+		
+		for ($j=0;$j<10;$j++) {
+			for ($i=1;$i<10000;$i++) {
+			    $result = $this->wpbenchmark_fibonacci_iterative(1000); // Adjust the input value as needed
+			}
 
 		    # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
+		
 		}
 		return true;
 	}
@@ -777,16 +787,22 @@ class wpbenchmarkio {
 	function test_cpu_string_operations($iterations = 2000000) {
 	    # $start = microtime(true);
 	    $text = "The quick brown fox jumps over the lazy dog.";
-	    for ($i = 0; $i < $iterations; $i++) {
-	        $text = strrev($text);
-	        $text = str_replace("o", "0", $text);
-	        $text = strtoupper($text);
 
-	        # trying to eliminate too long execution times
+	    $j_iteractions = 10;
+	    $i_iteractions = $iteractions / $j_iteractions;
+
+	    for ($j=0;$j<$j_iteractions;$j++) {
+		    for ($i = 0; $i < $i_iterations; $i++) {
+		        $text = strrev($text);
+		        $text = str_replace("o", "0", $text);
+		        $text = strtoupper($text);
+		    }
+
+		    # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    #return microtime(true) - $start;
 	    return true;
 	}
@@ -875,8 +891,11 @@ class wpbenchmarkio {
 	    }
 	    
 	    // Execute filter multiple times with different values
-	    for ($i = 0; $i < 100000; $i++) {
-	        $result = apply_filters('test_benchmark_filter', "test_value_$i");
+	    for ($j = 0; $j < 10 ; $j++) {
+		    for ($i = 0; $i < 10000; $i++) {
+		        $result = apply_filters('test_benchmark_filter', "test_value_$i");
+
+		    }
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time) {
@@ -886,7 +905,8 @@ class wpbenchmarkio {
 				return $this->max_time_reached_return_code;
 			}
 			# end trying to eliminate too long execution times
-	    }
+		 
+		}
 	    
 	    // Clean up all hooks to avoid side effects
 	    remove_all_filters('test_benchmark_filter');
@@ -915,18 +935,19 @@ class wpbenchmarkio {
 	    }
 	    
 	    // Set and get transients repeatedly
-	    for ($i = 0; $i < 10000; $i++) {
-	        // Mix of operations
-	        set_transient('benchmark_transient_' . $i, $complex_data, 60);
-	        $result = get_transient('benchmark_transient_' . $i);
-	        delete_transient('benchmark_transient_' . $i);
-
+	    for ($j = 0; $j < 10; $j++) {
+		    for ($i = 0; $i < 1000; $i++) {
+		        // Mix of operations
+		        set_transient('benchmark_transient_' . $i, $complex_data, 60);
+		        $result = get_transient('benchmark_transient_' . $i);
+		        delete_transient('benchmark_transient_' . $i);
+		    }
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}
@@ -954,16 +975,18 @@ class wpbenchmarkio {
 	    }
 	    
 	    // Benchmark option updates and gets
-	    for ($i = 0; $i < 200; $i++) {
-	        update_option('benchmark_option_' . $i, $large_option);
-	        $retrieved = get_option('benchmark_option_' . $i);
-	        delete_option('benchmark_option_' . $i);
+	    for ($j = 0; $j < 10; $j++) {
+		    for ($i = 0; $i < 20; $i++) {
+		        update_option('benchmark_option_' . $i, $large_option);
+		        $retrieved = get_option('benchmark_option_' . $i);
+		        delete_option('benchmark_option_' . $i);
+		    }
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}
@@ -987,29 +1010,31 @@ class wpbenchmarkio {
 	    }
 	    
 	    // Run regex patterns similar to what WordPress uses
-	    for ($i = 0; $i < 15000; $i++) {
-	        // Find shortcodes
-	        preg_match_all('/\[([^\s\]]+)([^\]]*)\](.*?)\[\/\1\]/s', $content, $shortcodes);
-	        
-	        // Extract Gutenberg blocks
-	        preg_match_all('/<!-- wp:([^\s]+) (.*?) -->(.*?)<!-- \/wp:\1 -->/s', $content, $blocks);
-	        
-	        // Find all images
-	        preg_match_all('/<img[^>]+src="([^"]+)"[^>]*>/i', $content, $images);
-	        
-	        // Replace URLs with https
-	        $content_https = preg_replace('/(http:\/\/[^\s"\']+)/', 'https://\\1', $content);
-	        
-	        // Auto-paragraph function (simplified version of wpautop)
-	        $paragraphed = preg_replace('/<p>(.*?)<\/p>/', "\n\n\\1\n\n", $content);
-	        $paragraphed = preg_replace('/\n\n+/', "\n\n", $paragraphed);
-	        $paragraphed = preg_replace('/\n\n(.+?)(?=\n\n|\z)/s', "<p>\\1</p>", $paragraphed);
+	    for ($j = 0; $j < 10; $j++) {
+		    for ($i = 0; $i < 1500; $i++) {
+		        // Find shortcodes
+		        preg_match_all('/\[([^\s\]]+)([^\]]*)\](.*?)\[\/\1\]/s', $content, $shortcodes);
+		        
+		        // Extract Gutenberg blocks
+		        preg_match_all('/<!-- wp:([^\s]+) (.*?) -->(.*?)<!-- \/wp:\1 -->/s', $content, $blocks);
+		        
+		        // Find all images
+		        preg_match_all('/<img[^>]+src="([^"]+)"[^>]*>/i', $content, $images);
+		        
+		        // Replace URLs with https
+		        $content_https = preg_replace('/(http:\/\/[^\s"\']+)/', 'https://\\1', $content);
+		        
+		        // Auto-paragraph function (simplified version of wpautop)
+		        $paragraphed = preg_replace('/<p>(.*?)<\/p>/', "\n\n\\1\n\n", $content);
+		        $paragraphed = preg_replace('/\n\n+/', "\n\n", $paragraphed);
+		        $paragraphed = preg_replace('/\n\n(.+?)(?=\n\n|\z)/s', "<p>\\1</p>", $paragraphed);
+		    }
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}
@@ -1053,30 +1078,34 @@ class wpbenchmarkio {
 	    }
 	    
 	    // Process taxonomy relationships
-	    for ($i = 0; $i < 10000; $i++) {
-	        // Find objects for a specific term (simulating get_objects_in_term)
-	        $term_id = rand(0, 99);
-	        $objects_in_term = array_filter($relationships, function($rel) use ($term_id) {
-	            return $rel['term_id'] == $term_id;
-	        });
-	        $object_ids = array_map(function($rel) {
-	            return $rel['object_id'];
-	        }, $objects_in_term);
-	        
-	        // Find terms for a specific object (simulating wp_get_object_terms)
-	        $object_id = rand(0, 499);
-	        $terms_for_object = array_filter($relationships, function($rel) use ($object_id) {
-	            return $rel['object_id'] == $object_id;
-	        });
-	        $term_ids = array_map(function($rel) {
-	            return $rel['term_id'];
-	        }, $terms_for_object);
+	    for ($j = 0; $j < 10; $j++) {
+		    for ($i = 0; $i < 1000; $i++) {
+		        // Find objects for a specific term (simulating get_objects_in_term)
+		        $term_id = rand(0, 99);
+		        $objects_in_term = array_filter($relationships, function($rel) use ($term_id) {
+		            return $rel['term_id'] == $term_id;
+		        });
+		        $object_ids = array_map(function($rel) {
+		            return $rel['object_id'];
+		        }, $objects_in_term);
+		        
+		        // Find terms for a specific object (simulating wp_get_object_terms)
+		        $object_id = rand(0, 499);
+		        $terms_for_object = array_filter($relationships, function($rel) use ($object_id) {
+		            return $rel['object_id'] == $object_id;
+		        });
+		        $term_ids = array_map(function($rel) {
+		            return $rel['term_id'];
+		        }, $terms_for_object);
+
+		 
+		    }
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}
@@ -1168,35 +1197,39 @@ class wpbenchmarkio {
 	        'manage_options', 'moderate_comments', 'custom_cap_1'
 	    );
 	    
-	    for ($i = 0; $i < 2000000; $i++) {
-	        $user = $users[array_rand($users)];
-	        $cap = $check_caps[array_rand($check_caps)];
-	        
-	        // Simulate capability check (simplified map_meta_cap logic)
-	        $has_cap = isset($user['capabilities'][$cap]) && $user['capabilities'][$cap];
-	        
-	        // Check for level capabilities (WordPress backward compatibility)
-	        if (!$has_cap) {
-	            foreach ($user['capabilities'] as $user_cap => $has) {
-	                if (strpos($user_cap, 'level_') === 0 && $has) {
-	                    $level = intval(substr($user_cap, 6));
-	                    // Some logic based on level
-	                    if ($cap == 'read' && $level >= 0) {
-	                        $has_cap = true;
-	                    } elseif ($cap == 'edit_posts' && $level >= 1) {
-	                        $has_cap = true;
-	                    } elseif ($cap == 'publish_posts' && $level >= 3) {
-	                        $has_cap = true;
-	                    }
-	                }
-	            }
-	        }
+	    for ($j=0;$j<10; $j++) {
+		    for ($i = 0; $i < 200000; $i++) {
+		        $user = $users[array_rand($users)];
+		        $cap = $check_caps[array_rand($check_caps)];
+		        
+		        // Simulate capability check (simplified map_meta_cap logic)
+		        $has_cap = isset($user['capabilities'][$cap]) && $user['capabilities'][$cap];
+		        
+		        // Check for level capabilities (WordPress backward compatibility)
+		        if (!$has_cap) {
+		            foreach ($user['capabilities'] as $user_cap => $has) {
+		                if (strpos($user_cap, 'level_') === 0 && $has) {
+		                    $level = intval(substr($user_cap, 6));
+		                    // Some logic based on level
+		                    if ($cap == 'read' && $level >= 0) {
+		                        $has_cap = true;
+		                    } elseif ($cap == 'edit_posts' && $level >= 1) {
+		                        $has_cap = true;
+		                    } elseif ($cap == 'publish_posts' && $level >= 3) {
+		                        $has_cap = true;
+		                    }
+		                }
+		            }
+		        }
 
-	        # trying to eliminate too long execution times
+	        
+		    }
+
+		    # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}
@@ -1230,8 +1263,11 @@ class wpbenchmarkio {
 	    });
 	    
 	    // Process content multiple times
-	    for ($i = 0; $i < 2000; $i++) {
-	        $filtered_content = apply_filters('the_content', $post_content);
+	    for ($j=0;$j<10;$j++) {
+		    for ($i = 0; $i < 200; $i++) {
+		        $filtered_content = apply_filters('the_content', $post_content);
+		    }
+
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time) {
@@ -1241,7 +1277,7 @@ class wpbenchmarkio {
 				return $this->max_time_reached_return_code;
 			}
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    // Clean up
 	    remove_all_filters('the_content');
@@ -1316,26 +1352,30 @@ class wpbenchmarkio {
 	    }
 	    
 	    // Encode and decode JSON repeatedly
-	    for ($i = 0; $i < $repeat_times; $i++) {
-	        // Encode to JSON
-	        $json = json_encode($posts);
-	        
-	        // Decode back to PHP
-	        $decoded = json_decode($json, true);
-	        
-	        // Process the data
-	        $processed = array_map(function($post) {
-	            $post['processed_title'] = strip_tags($post['title']['rendered']);
-	            $post['word_count'] = str_word_count(strip_tags($post['content']['rendered']));
-	            return $post;
-	        }, $decoded);
+	    for ($j = 0; $j<10; $j++) {
+		    for ($i = 0; $i < ($repeat_times/10); $i++) {
+		        // Encode to JSON
+		        $json = json_encode($posts);
+		        
+		        // Decode back to PHP
+		        $decoded = json_decode($json, true);
+		        
+		        // Process the data
+		        $processed = array_map(function($post) {
+		            $post['processed_title'] = strip_tags($post['title']['rendered']);
+		            $post['word_count'] = str_word_count(strip_tags($post['content']['rendered']));
+		            return $post;
+		        }, $decoded);
 
 
-	        # trying to eliminate too long execution times
+		     
+		    }
+		
+	       # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}
@@ -1388,42 +1428,43 @@ class wpbenchmarkio {
 	    );
 	    
 	    // Simulate WordPress template loading and processing
-	    for ($i = 0; $i < 200; $i++) {
-	        // Select a random template type
-	        $template_type = $template_hierarchy[array_rand($template_hierarchy)];
-	        
-	        // Get all template parts
-	        $template = '';
-	        foreach ($template_parts as $part) {
-	            $template .= $part . "\n";
-	        }
-	        
-	        // Process the template - replace variables
-	        foreach ($replacements as $placeholder => $value) {
-	            $template = str_replace($placeholder, $value, $template);
-	        }
-	        
-	        // Process conditional logic (simplified)
-	        if (strpos($template_type, 'single') === 0) {
-	            $template = str_replace('{{is_single}}', 'true', $template);
-	            $template = preg_replace('/\{\{if_single\}\}(.*?)\{\{\/if_single\}\}/s', '$1', $template);
-	        } else {
-	            $template = str_replace('{{is_single}}', 'false', $template);
-	            $template = preg_replace('/\{\{if_single\}\}(.*?)\{\{\/if_single\}\}/s', '', $template);
-	        }
-	        
-	        // Apply WordPress-like filters
-	        $template = str_replace('&quot;', '"', $template);
-	        $template = str_replace('&lt;', '<', $template);
-	        $template = str_replace('&gt;', '>', $template);
-	        $template = str_replace('&amp;', '&', $template);
-
+	    for ($j=0; $j<10; $j++) {
+		    for ($i = 0; $i < 20; $i++) {
+		        // Select a random template type
+		        $template_type = $template_hierarchy[array_rand($template_hierarchy)];
+		        
+		        // Get all template parts
+		        $template = '';
+		        foreach ($template_parts as $part) {
+		            $template .= $part . "\n";
+		        }
+		        
+		        // Process the template - replace variables
+		        foreach ($replacements as $placeholder => $value) {
+		            $template = str_replace($placeholder, $value, $template);
+		        }
+		        
+		        // Process conditional logic (simplified)
+		        if (strpos($template_type, 'single') === 0) {
+		            $template = str_replace('{{is_single}}', 'true', $template);
+		            $template = preg_replace('/\{\{if_single\}\}(.*?)\{\{\/if_single\}\}/s', '$1', $template);
+		        } else {
+		            $template = str_replace('{{is_single}}', 'false', $template);
+		            $template = preg_replace('/\{\{if_single\}\}(.*?)\{\{\/if_single\}\}/s', '', $template);
+		        }
+		        
+		        // Apply WordPress-like filters
+		        $template = str_replace('&quot;', '"', $template);
+		        $template = str_replace('&lt;', '<', $template);
+		        $template = str_replace('&gt;', '>', $template);
+		        $template = str_replace('&amp;', '&', $template);
+		    }
 
 	        # trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-	    }
+		}
 	    
 	    return true;
 	}	
@@ -1975,26 +2016,31 @@ class wpbenchmarkio {
 		global $wpdb;
 		$this->init_dbtable_names();
 
-		for ($i=0;$i<400;$i++) {
-			#$random_data = $wpdb->get_results("select * from ".$this->dbtables["obj"]." where random_int>=10 and random_int<=990 order by RAND() limit 600;", ARRAY_A );
-			$random_data = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["obj"]." where random_int=".rand(1,1000)." order by RAND();", ARRAY_A );
-			foreach($random_data as $r) {
-				$o_properties = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["prop"]." where o_id=".$r["o_id"].";", ARRAY_A );						
+		for ($j=0; $j<10; $j++) {
+			for ($i=0;$i<40;$i++) {
+				#$random_data = $wpdb->get_results("select * from ".$this->dbtables["obj"]." where random_int>=10 and random_int<=990 order by RAND() limit 600;", ARRAY_A );
+				$random_data = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["obj"]." where random_int=".rand(1,1000)." order by RAND();", ARRAY_A );
+				foreach($random_data as $r) {
+					$o_properties = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["prop"]." where o_id=".$r["o_id"].";", ARRAY_A );						
+				}
+				foreach($random_data as $r) {
+					$o_properties = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["prop"]." where o_id=".$r["o_id"].";", ARRAY_A );						
+				}
 			}
-			foreach($random_data as $r) {
-				$o_properties = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["prop"]." where o_id=".$r["o_id"].";", ARRAY_A );						
-			}
-
 
 			# trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
+		
 		}
 
 		# now let's do something about query cache
 		$full_data = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["obj"]." order by RAND()", ARRAY_A );
+		$check_row = 0;
 		foreach($full_data as $r) {
+			$check_row++;
+
 			$wpdb->query("delete from ".$this->dbtables["prop"]." where o_id=".$r["o_id"]." and p_name='data2';");			
 			$this->insert_into_db_testlog("Deleted data2 property for object ".$r["o_id"], $r["o_id"]);
 
@@ -2013,10 +2059,12 @@ class wpbenchmarkio {
 			$wpdb->update($this->dbtables["log"], array("txt"=>"Reset this value for testing.. Thank you for checking this out!"), array("o_id"=>$r["o_id"]));
 
 
-			# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $this->max_time_reached_return_code;
-			# end trying to eliminate too long execution times
+			if ($check_row%100==0) {
+				# trying to eliminate too long execution times
+				if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+					return $this->max_time_reached_return_code;
+				# end trying to eliminate too long execution times
+			}
 		}
 
 		return true;
@@ -2316,30 +2364,32 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 			$test_get_multiple = false;
 		}
 
-		for ($i=0;$i<1500000;$i++) {
 
-			if ($i%100==0 && $test_get_multiple) {
-				$multiple_data = wp_cache_get_multiple($multiple_keys_to_get, "wpbenchmark-".rand(0,$max_object_cache_group));
+		for ($j=0;$j<10; $j++) {
+			for ($i=0;$i<1500000;$i++) {
 
-				unset($multiple_data);
-				$multiple_keys_to_get=array();
+				if ($i%100==0 && $test_get_multiple) {
+					$multiple_data = wp_cache_get_multiple($multiple_keys_to_get, "wpbenchmark-".rand(0,$max_object_cache_group));
 
-			} else if ($i%50==0) {
-				$test_value = wp_cache_get( 'alloptions', 'options' );
-			} else if ($i%5==0) {
-				# instead of getting value from cache - we add key to get it with get_multiple()
-				$multiple_keys_to_get[] = "temp_".rand(0,$max_object_key_count);
-			} else {
-				$test_value = wp_cache_get("temp_".rand(0,$max_object_key_count), "wpbenchmark-".rand(0,$max_object_cache_group));
+					unset($multiple_data);
+					$multiple_keys_to_get=array();
+
+				} else if ($i%50==0) {
+					$test_value = wp_cache_get( 'alloptions', 'options' );
+				} else if ($i%5==0) {
+					# instead of getting value from cache - we add key to get it with get_multiple()
+					$multiple_keys_to_get[] = "temp_".rand(0,$max_object_key_count);
+				} else {
+					$test_value = wp_cache_get("temp_".rand(0,$max_object_key_count), "wpbenchmark-".rand(0,$max_object_cache_group));
+				}
+		
 			}
-
-
 
 			# trying to eliminate too long execution times
 			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
 				return $this->max_time_reached_return_code;
 			# end trying to eliminate too long execution times
-			
+	
 		}
 
 
@@ -2368,6 +2418,13 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 		for($i=0;$i<300000;$i++) {
 			if ($i%200==0) {
 				wp_cache_delete("temp_".rand(0,$max_object_key_count), "wpbenchmark-".rand(0,$max_object_cache_group));
+			
+
+				# trying to eliminate too long execution times
+				if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+					return $this->max_time_reached_return_code;
+				# end trying to eliminate too long execution times
+			
 			} else if ($i%40==0) {
 				$random_key = rand(0,$max_object_key_count);
 				$test_value = $use_data[$i%$use_data_size];
@@ -2407,10 +2464,6 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 			}				
 			
 
-			# trying to eliminate too long execution times
-			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
-				return $this->max_time_reached_return_code;
-			# end trying to eliminate too long execution times
 		} # end for
 
 

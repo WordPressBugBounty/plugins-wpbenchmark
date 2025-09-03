@@ -1,4 +1,4 @@
-=== WordPress Hosting Benchmark tool ===
+=== Hosting Benchmark tool ===
 Contributors: anton.aleksandrov
 Plugin URI: https://wpbenchmark.io/
 Donate link: https://wpbenchmark.io/donate/
@@ -6,11 +6,11 @@ Tags: benchmark, speed, hosting, performance, optimization
 Requires at least: 4.0
 Tested up to: 6.8
 Requires PHP: 5.6
-Stable tag: 1.6.3
+Stable tag: 1.6.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
-Benchmark your hosting server CPU, memory and disk, compare with others.
+Benchmark your hosting server CPU, memory and disk, compare with others using simple Wordpress plugin.
 
 == Description ==
 
@@ -57,6 +57,8 @@ Please use default Wordpress plugin installation method through Wordpress plugin
 3. Backward connectivity test results and timings
 
 == Changelog ==
+
+1.6.4  - fix execution time overhead, renaming plugin to comply with trademarks and community rules.
 
 1.6.3  - if your server is too slow and any of tests are running more than 20 seconds, script will try to avoid crashing, by interrupting benchmark.
 
