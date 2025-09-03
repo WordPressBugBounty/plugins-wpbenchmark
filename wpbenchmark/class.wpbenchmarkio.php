@@ -15,6 +15,10 @@ class wpbenchmarkio {
 
 	var $dbtables = array();
 
+	var $start_time = null;
+	var $maximum_execution_time = 20;
+	var $max_time_reached_return_code = false;
+
 	function __construct() {}
 
 	function request_new($m=array()) {
@@ -129,11 +133,11 @@ class wpbenchmarkio {
 						$this->$prepare_function();
 				}
 
-				$start_time = microtime(true);
+				$this->start_time = microtime(true);
 				if (!$this->$function_name())
 					$time_spent = 0;
 				else
-					$time_spent = microtime(true)-$start_time;
+					$time_spent = microtime(true)-$this->start_time;
 
 				
 				# if set - let's do a mess cleanup after the benchmark
@@ -597,6 +601,11 @@ class wpbenchmarkio {
 
 			if (strlen($ahex_capital)>10240)
 				$ahex_capital="";
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		return true;
@@ -634,6 +643,12 @@ class wpbenchmarkio {
 		$data_splitted_2 = array();
 		$data_splitted = array();
 		foreach($data as $big_string) {
+			
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
+
 			$data_splitted[]=explode(",", $big_string);
 			array_merge($data_splitted_2, preg_split("/[\s,]+/", $big_string));
 		}
@@ -642,10 +657,20 @@ class wpbenchmarkio {
 
 		foreach($data_splitted as $rk=>$r_array) {
 			sort($data_splitted[$rk]);
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		foreach($data_splitted_2 as $rk=>$rv) {
 			$data_splitted_2[$rk]=md5(md5($rv));
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		sort($data_splitted_2);
@@ -654,6 +679,11 @@ class wpbenchmarkio {
 			foreach($r_array as $sk=>$sv) {
 				$data_splitted[$rk][$sk]=md5($sv);
 			}
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		unset($data);
@@ -666,6 +696,12 @@ class wpbenchmarkio {
 	    if ($n <= 1) {
 	        return $n;
 	    } else {
+
+	    	# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $n;
+			# end trying to eliminate too long execution times
+
 	        return $this->wpbenchmark_fibonacci_recursive($n - 1) + $this->wpbenchmark_fibonacci_recursive($n - 2);
 	    }
 	}
@@ -691,6 +727,11 @@ class wpbenchmarkio {
 	function test_fibo_iterative() {
 		for ($i=1;$i<100000;$i++) {
 		    $result = $this->wpbenchmark_fibonacci_iterative(1000); // Adjust the input value as needed
+
+		    # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 		return true;
 	}
@@ -701,7 +742,7 @@ class wpbenchmarkio {
 
 	function run_cpu_background_test() {
 		# $result = $this->test_cpu_randbytes(5);
-		$result = $this->wpbenchmark_fibonacci_iterative(500);	
+		$result = $this->wpbenchmark_fibonacci_iterative(500);
 		$result = $this->test_cpu_regex(1, 1, 5120);
 
 		# $result = $this->test_wordpress_json_processing(1);
@@ -721,6 +762,11 @@ class wpbenchmarkio {
 		    for ($i = 0; $i < $iterations; $i++) {
 		        $result += sin($i) * cos($i) / sqrt($i + 1);
 		    }
+
+		    # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 	    
 	    return true;
@@ -735,6 +781,11 @@ class wpbenchmarkio {
 	        $text = strrev($text);
 	        $text = str_replace("o", "0", $text);
 	        $text = strtoupper($text);
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    #return microtime(true) - $start;
 	    return true;
@@ -784,6 +835,19 @@ class wpbenchmarkio {
 	    // Process shortcodes multiple times to benchmark CPU
 	    for ($i = 0; $i < $repeat_times; $i++) {
 	        $processed = do_shortcode($content);
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time) {
+				
+				// Clean up - remove our test shortcodes
+			    remove_shortcode('wpbenchmak_columns');
+			    remove_shortcode('wpbenchmak_row');
+			    remove_shortcode('wpbenchmak_section');
+			    remove_shortcode('wpbenchmak_tabs');
+
+				return $this->max_time_reached_return_code;
+			}
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    // Clean up - remove our test shortcodes
@@ -813,6 +877,15 @@ class wpbenchmarkio {
 	    // Execute filter multiple times with different values
 	    for ($i = 0; $i < 100000; $i++) {
 	        $result = apply_filters('test_benchmark_filter', "test_value_$i");
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time) {
+				// Clean up all hooks to avoid side effects
+	    		remove_all_filters('test_benchmark_filter');
+
+				return $this->max_time_reached_return_code;
+			}
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    // Clean up all hooks to avoid side effects
@@ -847,6 +920,12 @@ class wpbenchmarkio {
 	        set_transient('benchmark_transient_' . $i, $complex_data, 60);
 	        $result = get_transient('benchmark_transient_' . $i);
 	        delete_transient('benchmark_transient_' . $i);
+
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -879,6 +958,11 @@ class wpbenchmarkio {
 	        update_option('benchmark_option_' . $i, $large_option);
 	        $retrieved = get_option('benchmark_option_' . $i);
 	        delete_option('benchmark_option_' . $i);
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -920,6 +1004,11 @@ class wpbenchmarkio {
 	        $paragraphed = preg_replace('/<p>(.*?)<\/p>/', "\n\n\\1\n\n", $content);
 	        $paragraphed = preg_replace('/\n\n+/', "\n\n", $paragraphed);
 	        $paragraphed = preg_replace('/\n\n(.+?)(?=\n\n|\z)/s', "<p>\\1</p>", $paragraphed);
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -982,6 +1071,11 @@ class wpbenchmarkio {
 	        $term_ids = array_map(function($rel) {
 	            return $rel['term_id'];
 	        }, $terms_for_object);
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -1060,6 +1154,12 @@ class wpbenchmarkio {
 	            'roles' => array($role),
 	            'capabilities' => $roles[$role]
 	        );
+
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    // Run capability checks
@@ -1091,6 +1191,11 @@ class wpbenchmarkio {
 	                }
 	            }
 	        }
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -1127,6 +1232,15 @@ class wpbenchmarkio {
 	    // Process content multiple times
 	    for ($i = 0; $i < 2000; $i++) {
 	        $filtered_content = apply_filters('the_content', $post_content);
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time) {
+				// Clean up
+	    		remove_all_filters('the_content');
+
+				return $this->max_time_reached_return_code;
+			}
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    // Clean up
@@ -1194,6 +1308,11 @@ class wpbenchmarkio {
 	                )
 	            )
 	        );
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    // Encode and decode JSON repeatedly
@@ -1210,6 +1329,12 @@ class wpbenchmarkio {
 	            $post['word_count'] = str_word_count(strip_tags($post['content']['rendered']));
 	            return $post;
 	        }, $decoded);
+
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -1292,6 +1417,12 @@ class wpbenchmarkio {
 	        $template = str_replace('&lt;', '<', $template);
 	        $template = str_replace('&gt;', '>', $template);
 	        $template = str_replace('&amp;', '&', $template);
+
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 	    
 	    return true;
@@ -1394,6 +1525,11 @@ class wpbenchmarkio {
 	            fflush($fp);
 	            fclose($fp);
 	        }
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 
 	    return true;
@@ -1472,6 +1608,12 @@ class wpbenchmarkio {
 	            fflush($fp);
 	            fclose($fp);
 	        }
+
+
+	        # trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 	    }
 
 	    return true;
@@ -1566,6 +1708,11 @@ class wpbenchmarkio {
 			#$randomly_selected_file = $this->random_file_from_tmp();			
 			#if ($randomly_selected_file!="")
 			#	unlink($randomly_selected_file);
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		return true;
@@ -1812,6 +1959,12 @@ class wpbenchmarkio {
 			$next_o_type++;
 			if ($next_o_type>3)
 				$next_o_type=0;
+
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		return true;
@@ -1831,6 +1984,12 @@ class wpbenchmarkio {
 			foreach($random_data as $r) {
 				$o_properties = $wpdb->get_results("select SQL_NO_CACHE * from ".$this->dbtables["prop"]." where o_id=".$r["o_id"].";", ARRAY_A );						
 			}
+
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		# now let's do something about query cache
@@ -1853,6 +2012,11 @@ class wpbenchmarkio {
 
 			$wpdb->update($this->dbtables["log"], array("txt"=>"Reset this value for testing.. Thank you for checking this out!"), array("o_id"=>$r["o_id"]));
 
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		return true;
@@ -1892,6 +2056,12 @@ class wpbenchmarkio {
 				}
 			}
 
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
+
 		}
 
 
@@ -1904,6 +2074,12 @@ class wpbenchmarkio {
 			if (!$debug_mail_sent) {
 				$debug_mail_sent = true;
 			}
+
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		}
 
 		return true;
@@ -1927,6 +2103,16 @@ class wpbenchmarkio {
 				unlink($tmp_folder."/".$test_filename);
 
 			wp_remote_get("https://bandwidth-test.wpbenchmark.io/".$test_filename, $download_args);
+
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time) {
+				if (file_exists($tmp_folder."/".$test_filename))
+					unlink($tmp_folder."/".$test_filename);
+
+				return $this->max_time_reached_return_code;
+			}
+			# end trying to eliminate too long execution times
 		}
 
 
@@ -2064,6 +2250,11 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 			}
 
 			# removed 21.may.2023 # wp_cache_add("temp_big", $big_array, "wpbenchmark-".$j);
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		} # end of group J
 
 		return true;
@@ -2142,6 +2333,12 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 				$test_value = wp_cache_get("temp_".rand(0,$max_object_key_count), "wpbenchmark-".rand(0,$max_object_cache_group));
 			}
 
+
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 			
 		}
 
@@ -2209,6 +2406,11 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 				}
 			}				
 			
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
 		} # end for
 
 
