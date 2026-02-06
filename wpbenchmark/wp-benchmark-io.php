@@ -7,7 +7,7 @@ Plugin Name: Hosting Benchmark tool
 Plugin URI: https://wpbenchmark.io/
 Description: Benchmark your WordPress server's speed and capabilities, featuring scheduled performance monitoring and WordPress-specific tests for objective host comparisons.
 Text Domain: 
-Version: 1.6.4
+Version: 1.6.5
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
@@ -196,16 +196,17 @@ class wp_benchmark_io {
 					$event_args = array();
 					wp_schedule_single_event( time()+60, self::$schedulled_event_name, $event_args );
 
-					if (isset($_REQUEST["attempt_to_ping_me"])) {
-						if ($_REQUEST["attempt_to_ping_me"]==1) {
-							update_option(self::$attempt_pingback_option, 1);
-							self::ask_for_pingback(60);
-						} else {
-							update_option(self::$attempt_pingback_option, 0);
-						}
-					} else {
-						update_option(self::$attempt_pingback_option, 0);
-					}
+					update_option(self::$attempt_pingback_option, 0);
+					#if (isset($_REQUEST["attempt_to_ping_me"])) {
+					#	if ($_REQUEST["attempt_to_ping_me"]==1) {
+					#		update_option(self::$attempt_pingback_option, 1);
+					#		self::ask_for_pingback(60);
+					#	} else {
+					#		update_option(self::$attempt_pingback_option, 0);
+					#	}
+					#} else {
+					#	update_option(self::$attempt_pingback_option, 0);
+					#}
 				}
 			} # END IF DOA isset
 
@@ -941,9 +942,6 @@ class wp_benchmark_io {
 
 					<div class='wpio-row'>
 					<div class='wpio-col-7' style='padding-left:2em; margin-bottom:10px;'>
-						<div style='padding-bottom:10px; font-size:1.2em;'>
-							<label><input type='checkbox' name='attempt_to_ping_me' value='1'> - attempt to ping my Wordpress. Enable, if your Wordpress has very low traffic. My script will attempt to ping back to trigger scheduled event, but I can not promise accuracy.</label>
-						</div>
 						<button type='submit' class='wpio-btn wpio-btn-success wpio-btn-block wpio-btn-lg'>Enable scheduled benchmarking</button>
 					</div>
 					</div>
@@ -1473,13 +1471,13 @@ class wp_benchmark_io {
 		if (!wp_next_scheduled($event_name, $args)) {
 			wp_schedule_single_event( time()+296, $event_name, $args );
 		
-			$ask_for_pingback = get_option(self::$attempt_pingback_option);
-			if (isset($ask_for_pingback)) {
-				if ($ask_for_pingback==1) {
-					// ask for pingback
-					self::ask_for_pingback(296);
-				}
-			}
+			#$ask_for_pingback = get_option(self::$attempt_pingback_option);
+			#if (isset($ask_for_pingback)) {
+			#	if ($ask_for_pingback==1) {
+			#		// ask for pingback
+			#		self::ask_for_pingback(296);
+			#	}
+			#}
 		}
 	}
 
@@ -1487,15 +1485,15 @@ class wp_benchmark_io {
 	** function to ask wpbenchmark server to ping back this website
 	*/
 	static function ask_for_pingback($after_time=300) {
-		if ($after_time<296) {
-			$after_time=296;
-		}
+		#if ($after_time<296) {
+		#	$after_time=296;
+		#}
 
-		$data = array();
-		$data["site_url"] = get_site_url();
-		$data["after_time"] = $after_time;
+		#$data = array();
+		#$data["site_url"] = get_site_url();
+		#$data["after_time"] = $after_time;
 
-		wp_remote_post("https://collect.wpbenchmark.io/ping_me_back.php", array("body"=>$data));
+		# wp_remote_post("https://collect.wpbenchmark.io/ping_me_back.php", array("body"=>$data));
 
 		return true;
 	}
