@@ -421,7 +421,7 @@ class wpbenchmarkio {
 		$functions_to_run[] = array("type"=>"database", "function"=>"test_db_insert", "name"=>"Importing large amount of data to database", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/database-data-import/", "test_ratio"=>2);
 		$functions_to_run[] = array("type"=>"database", "function"=>"test_db_simple", "name"=>"Simple queries on single table", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/accessing-database-data/", "test_ratio"=>3);
 		$functions_to_run[] = array("type"=>"database", "function"=>"test_db_joins", "name"=>"Complex database queries on multiple tables", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/complex-database-queries/", "test_ratio"=>4);
-
+		$functions_to_run[] = array("type"=>"database", "function"=>"test_temp_disk_tables", "name"=>"Temporary disk based tables", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/temp-disk-tables/", "test_ratio"=>3, "prepare_function"=>"fill_temp_disk_tables");
 
 		# prepare_function=must_have_persistent_cache
 		$functions_to_run[] = array("type"=>"object_cache", "function"=>"test_has_persistent_oc", "name"=>"Persistent object cache enabled", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/has-persistent-object-cache/", "test_ratio"=>1, "prepare_function"=>"");
@@ -1830,7 +1830,11 @@ class wpbenchmarkio {
 		$tables = array();
 		$tables["obj"] = $wpdb->prefix."wpbench_o";
 		$tables["prop"] = $wpdb->prefix."wpbench_p";
-		$tables["log"] = $wpdb->prefix."wpbench_l";		
+		$tables["log"] = $wpdb->prefix."wpbench_l";
+
+		$tables["join_i"] = $wpdb->prefix."wpbench_i";
+		$tables["join_t"] = $wpdb->prefix."wpbench_t";
+		$tables["join_a"] = $wpdb->prefix."wpbench_a";
 
 		return($tables);
 	}
@@ -1900,6 +1904,51 @@ class wpbenchmarkio {
 		$wpdb->query($sql);
 
 		$sql="ALTER TABLE `".$this->dbtables["log"]."` MODIFY `l_id` bigint unsigned NOT NULL AUTO_INCREMENT;";
+		$wpdb->query($sql);
+
+
+		// New DB tables for on-disk temporary tables
+
+		$sql = "
+CREATE TABLE `".$this->dbtables["join_i"]."` (
+  `i_id`       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `i_category` ENUM('alpha','beta','gamma','delta') NOT NULL,
+  `i_title`    VARCHAR(255) NOT NULL,
+  `i_body`     TEXT NOT NULL,
+  `i_meta`     TEXT NOT NULL,
+  `i_score`    INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`i_id`),
+  KEY `i_category` (`i_category`),
+  KEY `i_score`    (`i_score`)
+);";
+		$wpdb->query($sql);
+
+
+		$sql = "
+CREATE TABLE `".$this->dbtables["join_t"]."` (
+  `t_id`    INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `i_id`    INT UNSIGNED NOT NULL,
+  `t_name`  VARCHAR(64)  NOT NULL,
+  `t_value` TEXT NOT NULL,
+  PRIMARY KEY (`t_id`),
+  KEY `i_id`   (`i_id`),
+  KEY `t_name` (`t_name`)
+);";
+		$wpdb->query($sql);
+
+
+		$sql = "
+CREATE TABLE `".$this->dbtables["join_a"]."` (
+  `a_id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `i_id`         INT UNSIGNED NOT NULL,
+  `t_id`         INT UNSIGNED NOT NULL,
+  `a_event_type` ENUM('create','update','delete','view','export') NOT NULL,
+  `a_event_data` TEXT NOT NULL,
+  PRIMARY KEY (`a_id`),
+  KEY `i_id`        (`i_id`),
+  KEY `t_id`        (`t_id`),
+  KEY `i_id_t_id`   (`i_id`, `t_id`)
+);";
 		$wpdb->query($sql);
 
 		return true;
@@ -2070,6 +2119,156 @@ class wpbenchmarkio {
 		return true;
 	}
 
+	function fill_temp_disk_tables() {
+		global $wpdb;
+		$this->init_dbtable_names();
+
+		$item_categories = array("alpha", "beta", "gamma", "delta");
+		$attribute_types = array("create", "update", "delete", "view", "export");
+
+		for($insert_item=0;$insert_item<200;$insert_item++) {
+			$item_body = "";
+			$item_size = rand(30,60);
+			for($b=0;$b<$item_size;$b++) {
+				$item_body .= " ".$this->get_1kb_text();
+			}
+
+			$wpdb->insert(
+				$this->dbtables["join_i"],
+				array(
+					"i_category"=>$item_categories[rand(0,3)],
+					"i_title"=>$this->get_random_string(rand(10,30)),
+					"i_body"=>$item_body,
+					"i_meta"=>$item_body,
+					"i_score"=>rand(1,10)
+				)
+			);
+			$item_id = $wpdb->insert_id;
+
+			for($insert_tag=0;$insert_tag<5;$insert_tag++) {
+
+				$tag_value = "";
+				$tag_size = rand(12,20);
+				for($b=0;$b<$tag_size;$b++) {
+					$tag_value .= " ".$this->get_1kb_text();
+				}
+
+				$wpdb->insert(
+					$this->dbtables["join_t"],
+					array(
+						"i_id"=>$item_id,
+						"t_name"=>$this->get_random_string(rand(20,40)),
+						"t_value"=>$tag_value
+					)
+				);
+				$tag_id = $wpdb->insert_id;
+
+
+				for($insert_attribute=0;$insert_attribute<3;$insert_attribute++) {
+					$attribute_data = "";
+					for($b=0;$b<5;$b++) {
+						$attribute_data .= " ".$this->get_1kb_text();
+					}
+
+					$wpdb->insert(
+						$this->dbtables["join_a"],
+						array(
+							"i_id"=>$item_id,
+							"t_id"=>$tag_id,
+							"a_event_type"=>$attribute_types[rand(0,4)],
+							"a_event_data"=>$attribute_data
+						)
+					);
+				}
+			}
+		}
+
+		# get_1kb_text
+	}
+
+	function test_temp_disk_tables() {
+		global $wpdb;
+		$this->init_dbtable_names();
+
+
+
+			$sql_1 = "SELECT SQL_NO_CACHE
+  unified.i_id,
+  unified.label,
+  unified.content,
+  unified.src
+FROM (
+  SELECT i_id, i_title      AS label, i_body       AS content, 'item'  AS src FROM ".$this->dbtables["join_i"]."
+  UNION ALL
+  SELECT i_id, t_name       AS label, t_value       AS content, 'tag'   AS src FROM ".$this->dbtables["join_t"]."
+  UNION ALL
+  SELECT i_id, a_event_type AS label, a_event_data  AS content, 'audit' AS src FROM ".$this->dbtables["join_a"]."
+) AS unified
+ORDER BY unified.src, unified.content, unified.label
+LIMIT 50;";
+
+			$sql_2 = "SELECT SQL_NO_CACHE
+  item_agg.i_category,
+  item_agg.i_body,
+  item_agg.all_tag_values,
+  audit_agg.all_events
+FROM (
+  SELECT i.i_id,
+         i.i_category,
+         i.i_body,
+         GROUP_CONCAT(t.t_value ORDER BY t.t_id SEPARATOR '\n') AS all_tag_values
+  FROM ".$this->dbtables["join_i"]." i
+  JOIN ".$this->dbtables["join_t"]." t ON i.i_id = t.i_id
+  GROUP BY i.i_id, i.i_category, i.i_body
+) AS item_agg
+JOIN (
+  SELECT a.i_id,
+         GROUP_CONCAT(a.a_event_data ORDER BY a.a_id SEPARATOR ' | ') AS all_events
+  FROM ".$this->dbtables["join_a"]." a
+  GROUP BY a.i_id
+) AS audit_agg ON item_agg.i_id = audit_agg.i_id
+ORDER BY item_agg.i_body, item_agg.all_tag_values
+LIMIT 30;";
+
+
+			$sql_3 = "SELECT SQL_NO_CACHE
+  i.i_category,
+  COUNT(DISTINCT t.t_id)                                                  AS tag_count,
+  GROUP_CONCAT(DISTINCT t.t_name ORDER BY t.t_name SEPARATOR ', ')        AS tag_names,
+  GROUP_CONCAT(t.t_value       ORDER BY t.t_id    SEPARATOR '||')         AS all_tag_values,
+  SUM(i.i_score)                                                           AS total_score,
+  GROUP_CONCAT(a.a_event_data  ORDER BY a.a_id    SEPARATOR ' -- ')       AS audit_trail
+FROM ".$this->dbtables["join_i"]." i
+JOIN ".$this->dbtables["join_t"]."  t ON i.i_id = t.i_id
+JOIN ".$this->dbtables["join_a"]." a ON t.t_id = a.t_id
+WHERE i.i_body  IS NOT NULL
+  AND t.t_value IS NOT NULL
+GROUP BY i.i_category
+ORDER BY all_tag_values, audit_trail DESC
+LIMIT 10;";
+
+
+		for ($i=0;$i<10;$i++) {
+
+			$sql_result_1 = $wpdb->get_results($sql_1);
+			$sql_result_2 = $wpdb->get_results($sql_2);
+			$sql_result_3 = $wpdb->get_results($sql_3);
+
+			unset($sql_result_1);
+			unset($sql_result_2);
+			unset($sql_result_3);
+
+			# trying to eliminate too long execution times
+			if ((microtime(true)-$this->start_time)>$this->maximum_execution_time)
+				return $this->max_time_reached_return_code;
+			# end trying to eliminate too long execution times
+		}
+
+
+
+		return true;
+	}
+
 
 	function test_db_joins() {
 		global $wpdb;
@@ -2172,6 +2371,16 @@ class wpbenchmarkio {
 
 	function get_1kb_text() {
 		return("oooOoOoOOOOOOooooOoooOooOOoOOOooOOoooOOoOoOOoooOOOoOOoOoOoOooOOOOOoooooooOOoOOOoooOOoooooOOOooOoooOOoOoOooOOooOoOOOOoOOooooOoooOoOOOOOOooOOooooOoOoOooOOOOoOoOooOoOooooOooOOOoOOOoOOoooOOooOooOOooOOoooOooOoOOoOOOOOOoOooOoOOOoOOoOOoOoOooooOOOoOoOoOoOooooOoOOooOOoooOoOoooOoOOOoOooooOooOOoOooOOOoOOOooOOOOOOOOoooooOoOOoOooOOoOoooooOooooooOooooOOooooOOoOooooooOooOoOOoOOooOooOOoOooOoooOoOoOOoOOOooOooooOOoOoOooooOooOoOoOOoOoOoOooOOOooOOoooOoooooOooOoOoOoOOoooOOOoOOooOOooOoOOOoOOOooOooooOOOOoOooOOooOoOOooooOooOOOoOoooOOooOOoOooOooOOoOOOooOoooOOoOoOOOoOoOOOOoOoOOOOoooooOoOOOooOOoOoOoOOOOooooOooOOooooOooOoooooooOOooooOooOooOoOoOooooooOOooOOOooooOooooOOooOOOOOOoOooOOOoOOoOooOoOOOOOoOoOoOooOOOOOOoOoOOOoooOooOoOoOOOoOOOOOoooooOoOoOOooooooOoOoOOOoOooOooooOOOooooOoOOoOOOoOoOoOoOooOOOooOoOooOoOOOooOoOoOoOOOOOoOOoOoOoOooOoOoOOOOoOOOOoOoooOoOOOOooOOOoOOOOOOOOooOooOOOooOooooOooOooOOoOooOOooOOOOoOOoOOOooOoOoOOOOOoooOoOoOoOoooooooOOOOooOOOOooOOOOoOooooOOooOoOoOoOoOOoOoooooooOOOoOOoOOooOoooOooOOOooOOoOoooooOoOoooOooOOooOoOOOoooOOOoO");
+	}
+
+	function get_random_string($len=16) {
+		$avail_chars = ' 12 345 6789 0AB CDEF GHJI KLMN OPQR STUV WXYZ abc def ghi jkl mno pqr stu vwxyz';
+		$char_len=strlen($avail_chars);
+		$rand_string = "";
+		for($sid_n=0; $sid_n < $len; $sid_n++) {
+			$rand_string .= substr($avail_chars, rand(0, $char_len-1), 1);
+		}
+		return($rand_string);
 	}
 
 

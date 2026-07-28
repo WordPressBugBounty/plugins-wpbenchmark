@@ -4,9 +4,9 @@ Plugin URI: https://wpbenchmark.io/
 Donate link: https://wpbenchmark.io/donate/
 Tags: benchmark, speed, hosting, performance, optimization
 Requires at least: 4.0
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 5.6
-Stable tag: 1.6.6
+Stable tag: 1.6.7
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -57,6 +57,8 @@ Please use default Wordpress plugin installation method through Wordpress plugin
 3. Backward connectivity test results and timings
 
 == Changelog ==
+
+1.6.7  - added benchmark of MySQL ability to create temporary disk-based tables for very complex query execution.
 
 1.6.6  - tiny TypeDef error fix. Thanks to Norm.
 
