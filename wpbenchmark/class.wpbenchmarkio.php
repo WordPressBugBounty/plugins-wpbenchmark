@@ -393,6 +393,8 @@ class wpbenchmarkio {
 			"database"=>array("name"=>"Database", "progress"=>0, "run_tests"=>array()),
 			"object_cache"=>array("name"=>"Object cache", "progress"=>0, "run_tests"=>array()),
 			"wordpress"=>array("name"=>"Wordpress core", "progress"=>0, "run_tests"=>array()),
+			"compression"=>array("name"=>"Compression<br>Serialization", "progress"=>0, "run_tests"=>array()),
+			"imaging"=>array("name"=>"Image processing", "progress"=>0, "run_tests"=>array()),
 			"network"=>array("name"=>"Network", "progress"=>0, "run_tests"=>array())			
 		);
 
@@ -444,6 +446,20 @@ class wpbenchmarkio {
 		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_content_filtering", "name"=>"Content filtering", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-content-filtering/", "test_ratio"=>2, "prepare_function"=>"");
 		$functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_json_processing", "name"=>"JSON manipulations", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/json-manipulations/", "test_ratio"=>2, "prepare_function"=>"");
 		# $functions_to_run[] = array("type"=>"wordpress", "function"=>"test_wordpress_template_processing", "name"=>"Template processing", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wordpress-template-processing/", "test_ratio"=>2, "prepare_function"=>"");
+
+
+		// Compression & Serialization
+		$functions_to_run[] = array("type"=>"compression", "function"=>"test_gzip_compression",    "name"=>"GZIP compression/decompression",   "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/gzip-compression/",    "test_ratio"=>2);
+		$functions_to_run[] = array("type"=>"compression", "function"=>"test_deflate_compression", "name"=>"Deflate compression/decompression", "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/deflate-compression/", "test_ratio"=>2);
+		$functions_to_run[] = array("type"=>"compression", "function"=>"test_php_serialize",       "name"=>"PHP serialize/unserialize",         "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/php-serialize/",       "test_ratio"=>2);
+		$functions_to_run[] = array("type"=>"compression", "function"=>"test_wp_maybe_serialize",  "name"=>"WordPress maybe_serialize",         "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/wp-maybe-serialize/",  "test_ratio"=>3);
+		$functions_to_run[] = array("type"=>"compression", "function"=>"test_base64_encoding",     "name"=>"Base64 encode/decode",              "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/base64-encoding/",     "test_ratio"=>1);
+
+		// Image processing
+		$functions_to_run[] = array("type"=>"imaging", "function"=>"test_image_resize",         "name"=>"Image resize (WP_Image_Editor)",    "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/image-resize/",      "test_ratio"=>3, "prepare_function"=>"prepare_test_images", "cleanup_function"=>"cleanup_test_images");
+		$functions_to_run[] = array("type"=>"imaging", "function"=>"test_image_thumbnails",     "name"=>"Multiple thumbnail generation",     "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/image-thumbnails/",  "test_ratio"=>3, "prepare_function"=>"prepare_test_images", "cleanup_function"=>"cleanup_test_images");
+		$functions_to_run[] = array("type"=>"imaging", "function"=>"test_image_quality_convert","name"=>"Image quality/format conversion",   "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/image-conversion/",  "test_ratio"=>2, "prepare_function"=>"prepare_test_images", "cleanup_function"=>"cleanup_test_images");
+		$functions_to_run[] = array("type"=>"imaging", "function"=>"test_image_gd_filters",     "name"=>"GD image filters",                  "description"=>"", "is_complete"=>false, "measured_time"=>0, "result_dsc"=>"Not run", "url"=>"/wordpress-test/image-gd-filters/",  "test_ratio"=>2, "prepare_function"=>"prepare_test_images", "cleanup_function"=>"cleanup_test_images");
 
 
 
@@ -2678,6 +2694,399 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 
 		return true;
 	} # end function
+
+
+
+
+
+	/**
+	 * GZIP compression — tests gzencode/gzdecode performance.
+	 * Used by WordPress for HTTP transport, object cache serialisation, etc.
+	 */
+	function test_gzip_compression() {
+	    if (!function_exists('gzencode') || !function_exists('gzdecode')) {
+	        return false;
+	    }
+
+	    $payload = "";
+	    for ($i = 0; $i < 500; $i++) {
+	        $payload .= "<p class='post-{$i}'>WordPress is a state-of-the-art "
+	                  . "publishing platform with a focus on aesthetics, web "
+	                  . "standards, and usability. Item number {$i}.</p>\n";
+	    }
+
+	    for ($j = 0; $j < 100; $j++) {
+	        for ($i = 0; $i < 100; $i++) {
+	            $level      = ($i % 9) + 1;
+	            $compressed = gzencode($payload, $level);
+	            $restored   = gzdecode($compressed);
+
+	            #if ($restored !== $payload) {
+	            #    return false;
+	            #}
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    unset($payload, $compressed, $restored);
+	    return true;
+	}
+
+	/**
+	 * Deflate compression — tests gzdeflate/gzinflate performance.
+	 * Mixed text + binary payload to stress both compressible and random data paths.
+	 */
+	function test_deflate_compression() {
+	    if (!function_exists('gzdeflate') || !function_exists('gzinflate')) {
+	        return false;
+	    }
+
+	    $payload = "";
+	    for ($i = 0; $i < 200; $i++) {
+	        $payload .= $this->get_1kb_text();
+	    }
+	    $payload .= random_bytes(50 * 1024);
+
+	    for ($j = 0; $j < 10; $j++) {
+	        for ($i = 0; $i < 50; $i++) {
+	            $compressed = gzdeflate($payload, 6);
+	            $restored   = gzinflate($compressed);
+
+	            #if ($restored !== $payload) {
+	            #    return false;
+	            #}
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    unset($payload, $compressed, $restored);
+	    return true;
+	}
+
+	/**
+	 * PHP native serialize/unserialize benchmark.
+	 * Critical path for WP options, transients, and object cache.
+	 */
+	function test_php_serialize() {
+	    $data = array();
+	    for ($i = 0; $i < 500; $i++) {
+	        $data["key_$i"] = array(
+	            'id'      => $i,
+	            'name'    => 'Item ' . $i,
+	            'tags'    => array('tag1', 'tag2', 'tag' . $i),
+	            'meta'    => array(
+	                'created' => time() - rand(0, 100000),
+	                'score'   => rand(1, 100) / 7.0,
+	                'text'    => str_repeat('lorem ipsum ', 8),
+	            ),
+	            'enabled' => ($i % 2 == 0),
+	        );
+	    }
+
+	    for ($j = 0; $j < 20; $j++) {
+	        for ($i = 0; $i < 300; $i++) {
+	            $serialized   = serialize($data);
+	            $deserialized = unserialize($serialized);
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    unset($data, $serialized, $deserialized);
+	    return true;
+	}
+
+	/**
+	 * WordPress maybe_serialize / maybe_unserialize / is_serialized.
+	 * Used everywhere in the options and postmeta APIs.
+	 */
+	function test_wp_maybe_serialize() {
+	    $samples = array(
+	        'simple string',
+	        12345,
+	        array('a' => 1, 'b' => 2, 'c' => array('x', 'y', 'z')),
+	        (object) array('foo' => 'bar', 'baz' => 'qux'),
+	        str_repeat('WordPress ', 200),
+	        array_fill(0, 100, 'value'),
+	    );
+
+	    for ($j = 0; $j < 100; $j++) {
+	        for ($i = 0; $i < 5000; $i++) {
+	            foreach ($samples as $sample) {
+	                $s     = maybe_serialize($sample);
+	                $check = is_serialized($s);
+	                $u     = maybe_unserialize($s);
+	            }
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    return true;
+	}
+
+	/**
+	 * Base64 encode/decode — used in data URIs, REST API payloads, and embeds.
+	 */
+	function test_base64_encoding() {
+	    $payload = random_bytes(100 * 1024);
+
+	    for ($j = 0; $j < 100; $j++) {
+	        for ($i = 0; $i < 500; $i++) {
+	            $encoded = base64_encode($payload);
+	            $decoded = base64_decode($encoded);
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    unset($payload, $encoded, $decoded);
+	    return true;
+	}
+
+	/**
+	 * Create the source test image once; reused by all imaging tests.
+	 * GD availability is checked first so no filesystem side-effects occur
+	 * on servers without the extension.
+	 */
+	function prepare_test_images() {
+	    if (!function_exists('imagecreatetruecolor')) {
+	        return false;
+	    }
+
+	    $tmp_folder = $this->tmp_folder_name();
+	    $this->make_tmp_folder();
+
+	    $source = $tmp_folder . '/wpio_source.jpg';
+
+	    if (file_exists($source)) {
+	        return true;
+	    }
+
+	    $w  = 2000;
+	    $h  = 1500;
+	    $im = imagecreatetruecolor($w, $h);
+
+	    for ($y = 0; $y < $h; $y += 4) {
+	        for ($x = 0; $x < $w; $x += 4) {
+	            $r     = (int)($x * 255 / $w);
+	            $g     = (int)($y * 255 / $h);
+	            $b     = (int)(($x + $y) * 255 / ($w + $h));
+	            $color = imagecolorallocate($im, $r, $g, $b);
+	            imagefilledrectangle($im, $x, $y, $x + 3, $y + 3, $color);
+	        }
+	    }
+
+	    imagejpeg($im, $source, 90);
+	    imagedestroy($im);
+
+	    return true;
+	}
+
+	/**
+	 * Remove all imaging test artefacts from the temp folder.
+	 *
+	 * Prefixes handled:
+	 *   wpio_img_    — resize and quality-conversion outputs
+	 *   wpio_thumb_  — reserved for future thumbnail naming
+	 *   wpio_source- — files generated by WP_Image_Editor::multi_resize()
+	 *                  (named after the source file, e.g. wpio_source-300x225.jpg)
+	 *
+	 * wpio_source.jpg (the master source, no dash) is intentionally NOT removed
+	 * so it can be reused across repeated test runs.
+	 */
+	function cleanup_test_images() {
+	    $tmp_folder = $this->tmp_folder_name();
+	    if (!is_dir($tmp_folder)) return true;
+
+	    if ($dh = opendir($tmp_folder)) {
+	        while (($file = readdir($dh)) !== false) {
+	            if (
+	                strpos($file, 'wpio_img_')    === 0 ||
+	                strpos($file, 'wpio_thumb_')  === 0 ||
+	                strpos($file, 'wpio_source-') === 0
+	            ) {
+	                @unlink($tmp_folder . '/' . $file);
+	            }
+	        }
+	        closedir($dh);
+	    }
+	    return true;
+	}
+
+	/**
+	 * Image resize benchmark using WP_Image_Editor.
+	 * Each output size is generated from the original source via a fresh editor
+	 * instance — matches WP core behaviour during media upload.
+	 */
+	function test_image_resize() {
+	    $tmp_folder = $this->tmp_folder_name();
+	    $source     = $tmp_folder . '/wpio_source.jpg';
+
+	    if (!file_exists($source)) return false;
+
+	    $sizes = array(
+	        array(1600, 1200),
+	        array(1200, 900),
+	        array(800,  600),
+	        array(400,  300),
+	        array(150,  150),
+	    );
+
+	    for ($i = 0; $i < 10; $i++) {
+	        foreach ($sizes as $idx => $sz) {
+	            $editor = wp_get_image_editor($source);
+	            if (is_wp_error($editor)) return false;
+
+	            $editor->resize($sz[0], $sz[1], false);
+
+	            $dest = $tmp_folder . '/wpio_img_' . $i . '_' . $idx . '.jpg';
+	            $editor->save($dest, 'image/jpeg');
+
+	            unset($editor);
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    return true;
+	}
+
+	/**
+	 * Multiple thumbnail generation — realistic WP upload simulation.
+	 * Uses WP_Image_Editor::multi_resize(), which is the same code path
+	 * WordPress core calls when generating sub-sizes after upload.
+	 */
+	function test_image_thumbnails() {
+	    $tmp_folder = $this->tmp_folder_name();
+	    $source     = $tmp_folder . '/wpio_source.jpg';
+
+	    if (!file_exists($source)) return false;
+
+	    $sub_sizes = array(
+	        'thumbnail'    => array('width' => 150,  'height' => 150,  'crop' => true),
+	        'medium'       => array('width' => 300,  'height' => 300,  'crop' => false),
+	        'medium_large' => array('width' => 768,  'height' => 0,    'crop' => false),
+	        'large'        => array('width' => 1024, 'height' => 1024, 'crop' => false),
+	        '1536x1536'    => array('width' => 1536, 'height' => 1536, 'crop' => false),
+	    );
+
+	    for ($i = 0; $i < 15; $i++) {
+	        $editor    = wp_get_image_editor($source);
+	        if (is_wp_error($editor)) return false;
+
+	        $generated = $editor->multi_resize($sub_sizes);
+
+	        // multi_resize() saves files alongside the source (wpio_source-WxH.jpg).
+	        // Delete them inline so they don't accumulate; cleanup_test_images()
+	        // handles the wpio_source- prefix for any files left on early exit.
+	        if (is_array($generated)) {
+	            foreach ($generated as $g) {
+	                if (!empty($g['file'])) {
+	                    @unlink($tmp_folder . '/' . $g['file']);
+	                }
+	            }
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    return true;
+	}
+
+	/**
+	 * Image quality/format conversion benchmark (JPEG, PNG, WebP).
+	 * WebP is included only when the active image editor reports support for it.
+	 */
+	function test_image_quality_convert() {
+	    $tmp_folder = $this->tmp_folder_name();
+	    $source     = $tmp_folder . '/wpio_source.jpg';
+
+	    if (!file_exists($source)) return false;
+
+	    $editor_probe = wp_get_image_editor($source);
+	    if (is_wp_error($editor_probe)) return false;
+
+	    $targets = array('image/jpeg', 'image/png');
+	    if ($editor_probe::supports_mime_type('image/webp')) {
+	        $targets[] = 'image/webp';
+	    }
+	    unset($editor_probe);
+
+	    $qualities = array(40, 60, 80, 95);
+
+	    for ($i = 0; $i < 10; $i++) {
+	        foreach ($targets as $mime) {
+	            foreach ($qualities as $q) {
+	                $editor = wp_get_image_editor($source);
+	                if (is_wp_error($editor)) return false;
+
+	                $editor->set_quality($q);
+	                $editor->resize(800, 600, false);
+
+	                $ext  = ($mime === 'image/png') ? 'png' : (($mime === 'image/webp') ? 'webp' : 'jpg');
+	                $dest = $tmp_folder . '/wpio_img_q' . $q . '_' . $i . '.' . $ext;
+	                $editor->save($dest, $mime);
+	            }
+	        }
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    return true;
+	}
+
+	/**
+	 * Direct GD filter operations — lower-level CPU and memory image work,
+	 * independent of WP_Image_Editor. Tests grayscale, blur, brightness,
+	 * contrast, and smooth filters on an 800×600 downsample of the source.
+	 */
+	function test_image_gd_filters() {
+	    if (!function_exists('imagecreatetruecolor') || !function_exists('imagefilter')) {
+	        return false;
+	    }
+
+	    $tmp_folder = $this->tmp_folder_name();
+	    $source     = $tmp_folder . '/wpio_source.jpg';
+
+	    if (!file_exists($source)) return false;
+
+	    for ($i = 0; $i < 30; $i++) {
+	        $im = imagecreatefromjpeg($source);
+	        if (!$im) return false;
+
+	        $small = imagecreatetruecolor(800, 600);
+	        imagecopyresampled($small, $im, 0, 0, 0, 0, 800, 600, imagesx($im), imagesy($im));
+	        imagedestroy($im);
+
+	        imagefilter($small, IMG_FILTER_GRAYSCALE);
+	        imagefilter($small, IMG_FILTER_GAUSSIAN_BLUR);
+	        imagefilter($small, IMG_FILTER_GAUSSIAN_BLUR);
+	        imagefilter($small, IMG_FILTER_BRIGHTNESS, 15);
+	        imagefilter($small, IMG_FILTER_CONTRAST, -10);
+	        imagefilter($small, IMG_FILTER_SMOOTH, 5);
+
+	        $dest = $tmp_folder . '/wpio_img_filter_' . $i . '.jpg';
+	        imagejpeg($small, $dest, 85);
+	        imagedestroy($small);
+	        @unlink($dest);
+
+	        if ((microtime(true) - $this->start_time) > $this->maximum_execution_time)
+	            return $this->max_time_reached_return_code;
+	    }
+
+	    return true;
+	}
 
 
 } # end class

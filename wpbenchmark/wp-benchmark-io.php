@@ -7,7 +7,7 @@ Plugin Name: Hosting Benchmark tool
 Plugin URI: https://wpbenchmark.io/
 Description: Benchmark your WordPress server's speed and capabilities, featuring scheduled performance monitoring and WordPress-specific tests for objective host comparisons.
 Text Domain: 
-Version: 1.6.7
+Version: 1.7.0
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
