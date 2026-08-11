@@ -28,6 +28,7 @@ class wpbenchmarkio {
 		$m["a"] = "register_new";
 		$m["site_url"] = get_site_url();
 		$m["anonymize_after"]=$settings["anonymize_after"];
+		$m["cpu_info"] = $this->collect_cpu_info();
 		$data = $this->talk($m);
 
 		if (isset($data["bench_code"])) {
@@ -3088,5 +3089,1114 @@ Vivamus et tellus odio. Nullam gravida cursus aliquet. Aenean ornare fringilla e
 	    return true;
 	}
 
+
+	function php_env_ini_to_bytes($value) {
+		if ($value === null || $value === false || $value === "") {
+			return 0;
+		}
+		if (is_numeric($value)) {
+			return (int) $value;
+		}
+		$value = trim((string) $value);
+		$unit  = strtolower(substr($value, -1));
+		$num   = (float) $value;
+		switch ($unit) {
+			case "g":
+				return (int) round($num * 1073741824);
+			case "m":
+				return (int) round($num * 1048576);
+			case "k":
+				return (int) round($num * 1024);
+			default:
+				return (int) $num;
+		}
+	}
+
+	/**
+	 * True if a function name is usable (exists and not in disable_functions).
+	 *
+	 * @param string $function_name
+	 * @return bool
+	 */
+	function php_env_function_allowed($function_name) {
+		if (!function_exists($function_name)) {
+			return false;
+		}
+		$disabled = ini_get("disable_functions");
+		if ($disabled === false || $disabled === "") {
+			return true;
+		}
+		$list = array_map("trim", explode(",", strtolower($disabled)));
+		return !in_array(strtolower($function_name), $list, true);
+	}
+
+	/**
+	 * Collect CPU details for telemetry / PHP settings.
+	 * Fixed schema: every key always present; unavailable values are blank strings.
+	 * Safe on locked shared hosts (no fatals; shell only if allowed).
+	 *
+	 * @return array<string,string>
+	 */
+	function collect_cpu_info() {
+		$info = array(
+			"model"          => "",
+			"model_short"    => "",
+			"vendor_id"      => "",
+			"architecture"   => "",
+			"cpu_family"     => "",
+			"cpu_model_id"   => "",
+			"stepping"       => "",
+			"microcode"      => "",
+			"cpu_mhz"        => "",
+			"bogomips"       => "",
+			"cache_size"     => "",
+			"physical_id"    => "",
+			"siblings"       => "",
+			"cpu_cores"      => "",
+			"cores_logical"  => "",
+			"flags"          => "",
+			"flags_selected" => "",
+			"hardware"       => "",
+			"revision"       => "",
+			"os_name"        => "",
+			"os_release"     => "",
+			"os_family"      => "",
+			"sapi"           => "",
+			"source"         => "",
+			"detected"       => "0",
+			"note"           => "",
+		);
+
+		$arch = php_uname("m");
+		$info["architecture"] = is_string($arch) ? $arch : "";
+		$info["os_name"] = (string) php_uname("s");
+		$info["os_release"] = (string) php_uname("r");
+		$info["sapi"] = (string) php_sapi_name();
+
+		if (defined("PHP_OS_FAMILY")) {
+			$os_family = PHP_OS_FAMILY;
+		} else {
+			$os_family = (strtoupper(substr(PHP_OS, 0, 3)) === "WIN") ? "Windows" : "Unix";
+		}
+		$info["os_family"] = (string) $os_family;
+
+		$detected = false;
+
+		if (is_readable("/proc/cpuinfo")) {
+			$cpuinfo = @file_get_contents("/proc/cpuinfo");
+			if (is_string($cpuinfo) && $cpuinfo !== "") {
+				$map = array(
+					"vendor_id"    => "vendor_id",
+					"cpu family"   => "cpu_family",
+					"model"        => "cpu_model_id",
+					"model name"   => "model",
+					"stepping"     => "stepping",
+					"microcode"    => "microcode",
+					"cpu MHz"      => "cpu_mhz",
+					"bogomips"     => "bogomips",
+					"cache size"   => "cache_size",
+					"physical id"  => "physical_id",
+					"siblings"     => "siblings",
+					"cpu cores"    => "cpu_cores",
+					"flags"        => "flags",
+					"Features"     => "flags",
+					"Hardware"     => "hardware",
+					"Revision"     => "revision",
+				);
+
+				// First processor block only for scalar fields.
+				$blocks = preg_split('/\n\s*\n/', $cpuinfo);
+				$first  = (is_array($blocks) && isset($blocks[0])) ? $blocks[0] : $cpuinfo;
+
+				foreach ($map as $cpuinfo_key => $schema_key) {
+					if ($info[$schema_key] !== "") {
+						continue;
+					}
+					$pattern = '/^' . preg_quote($cpuinfo_key, "/") . '\s*:\s*(.+)$/mi';
+					if (preg_match($pattern, $first, $m)) {
+						$info[$schema_key] = trim($m[1]);
+					}
+				}
+
+				if (preg_match_all('/^processor\s*:/mi', $cpuinfo, $procs)) {
+					$info["cores_logical"] = (string) count($procs[0]);
+				}
+
+				if ($info["model"] !== "") {
+					$detected = true;
+					$info["source"] = "proc_cpuinfo";
+				} elseif ($info["hardware"] !== "") {
+					$info["model"] = $info["hardware"];
+					$detected = true;
+					$info["source"] = "proc_cpuinfo_hardware";
+				}
+			}
+		}
+
+		if (!$detected && $os_family !== "Windows") {
+			if ($this->php_env_function_allowed("shell_exec")) {
+				$sysctl = @shell_exec("sysctl -n machdep.cpu.brand_string 2>/dev/null");
+				if (is_string($sysctl) && trim($sysctl) !== "") {
+					$info["model"] = trim($sysctl);
+					$info["source"] = "sysctl";
+					$detected = true;
+				}
+				if ($info["cores_logical"] === "") {
+					$ncpu = @shell_exec("sysctl -n hw.ncpu 2>/dev/null");
+					if (is_string($ncpu) && (int) trim($ncpu) > 0) {
+						$info["cores_logical"] = (string) ((int) trim($ncpu));
+					}
+				}
+				if ($info["vendor_id"] === "") {
+					$vendor = @shell_exec("sysctl -n machdep.cpu.vendor 2>/dev/null");
+					if (is_string($vendor) && trim($vendor) !== "") {
+						$info["vendor_id"] = trim($vendor);
+					}
+				}
+			}
+		}
+
+		if (!$detected && $os_family === "Windows") {
+			if ($this->php_env_function_allowed("shell_exec")) {
+				$wmic = @shell_exec("wmic cpu get Name,Manufacturer,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed /format:list 2>NUL");
+				if (is_string($wmic) && $wmic !== "") {
+					if (preg_match('/^Name=(.+)$/mi', $wmic, $m)) {
+						$info["model"] = trim($m[1]);
+						$detected = ($info["model"] !== "");
+						$info["source"] = "wmic";
+					}
+					if (preg_match('/^Manufacturer=(.+)$/mi', $wmic, $m)) {
+						$info["vendor_id"] = trim($m[1]);
+					}
+					if (preg_match('/^NumberOfCores=(.+)$/mi', $wmic, $m)) {
+						$info["cpu_cores"] = trim($m[1]);
+					}
+					if (preg_match('/^NumberOfLogicalProcessors=(.+)$/mi', $wmic, $m)) {
+						$info["cores_logical"] = trim($m[1]);
+					}
+					if (preg_match('/^MaxClockSpeed=(.+)$/mi', $wmic, $m)) {
+						$mhz = trim($m[1]);
+						if ($mhz !== "") {
+							$info["cpu_mhz"] = $mhz;
+						}
+					}
+				}
+			}
+		}
+
+		if ($detected && $info["model"] !== "") {
+			$info["detected"] = "1";
+			$info["note"] = "";
+		} else {
+			$arch_label = ($info["architecture"] !== "") ? $info["architecture"] : "unknown";
+			$info["model"] = "";
+			$info["source"] = ($info["source"] !== "") ? $info["source"] : "fallback";
+			$info["detected"] = "0";
+			$info["note"] = "Host blocks CPU details (common on shared hosting). Architecture: {$arch_label}; OS: {$info["os_name"]} {$info["os_release"]}.";
+		}
+
+		if ($info["model"] !== "") {
+			$info["model_short"] = $info["model"];
+			if (strlen($info["model_short"]) > 80) {
+				$info["model_short"] = substr($info["model_short"], 0, 77) . "...";
+			}
+		}
+
+		$info["flags_selected"] = $this->cpu_info_select_flags($info["flags"]);
+		if (strlen($info["flags"]) > 512) {
+			$info["flags"] = "";
+		}
+
+		return $info;
+	}
+
+	/**
+	 * Compact interesting CPU feature flags from a full flags/Features string.
+	 *
+	 * @param string $flags
+	 * @return string
+	 */
+	function cpu_info_select_flags($flags) {
+		if (!is_string($flags) || $flags === "") {
+			return "";
+		}
+		$want = array(
+			"sse", "sse2", "sse3", "ssse3", "sse4_1", "sse4_2",
+			"avx", "avx2", "avx512f", "aes", "sha_ni",
+			"neon", "asimd", "crc32", "atomics",
+		);
+		$have = preg_split('/\s+/', strtolower($flags));
+		if (!is_array($have)) {
+			return "";
+		}
+		$have_map = array_fill_keys($have, true);
+		$selected = array();
+		foreach ($want as $flag) {
+			if (isset($have_map[$flag])) {
+				$selected[] = $flag;
+			}
+		}
+		return implode(" ", $selected);
+	}
+
+	/**
+	 * Back-compat wrapper for PHP settings UI (maps string schema to legacy display fields).
+	 *
+	 * @return array
+	 */
+	function detect_cpu_info() {
+		$c = $this->collect_cpu_info();
+		return array(
+			"model"         => ($c["model"] !== "") ? $c["model"] : ("CPU model unavailable (" . ($c["architecture"] !== "" ? $c["architecture"] : "unknown") . ")"),
+			"model_short"   => ($c["model_short"] !== "") ? $c["model_short"] : (($c["model"] !== "") ? $c["model"] : "CPU model unavailable"),
+			"cores_logical" => ($c["cores_logical"] !== "") ? (int) $c["cores_logical"] : null,
+			"architecture"  => $c["architecture"],
+			"vendor_id"     => $c["vendor_id"],
+			"flags_selected"=> $c["flags_selected"],
+			"source"        => $c["source"],
+			"detected"      => ($c["detected"] === "1"),
+			"note"          => $c["note"],
+		);
+	}
+
+	/**
+	 * Snapshot of PHP/OPcache environment + CPU for tips, tab UI, and reporting.
+	 *
+	 * @return array
+	 */
+	function collect_php_env_report() {
+		$report = array(
+			"available"                   => false,
+			"enabled"                     => false,
+			"restricted"                  => false,
+			"memory_consumption_mb"       => null,
+			"interned_strings_buffer_mb"  => null,
+			"max_accelerated_files"       => null,
+			"validate_timestamps"         => null,
+			"revalidate_freq"             => null,
+			"max_wasted_percentage"       => null,
+			"enable_file_override"        => null,
+			"realpath_cache_size_bytes"   => null,
+			"realpath_cache_size_mb"      => null,
+			"pcre_jit"                    => null,
+			"memory_limit"                => null,
+			"memory_limit_bytes"          => null,
+			"max_execution_time"          => null,
+			"max_input_time"              => null,
+			"max_input_vars"              => null,
+			"upload_max_filesize"         => null,
+			"upload_max_filesize_bytes"   => null,
+			"post_max_size"               => null,
+			"post_max_size_bytes"         => null,
+			"expose_php"                  => null,
+			"zlib_output_compression"     => null,
+			"php_version"                 => phpversion(),
+			"sapi"                        => php_sapi_name(),
+			"cache_full"                  => null,
+			"memory_used_bytes"           => null,
+			"memory_free_bytes"           => null,
+			"memory_wasted_bytes"         => null,
+			"memory_used_pct"             => null,
+			"interned_used_bytes"         => null,
+			"interned_free_bytes"         => null,
+			"interned_buffer_size"        => null,
+			"interned_used_pct"           => null,
+			"num_cached_scripts"          => null,
+			"max_cached_keys"             => null,
+			"scripts_used_pct"            => null,
+			"hits"                        => null,
+			"misses"                      => null,
+			"hit_rate_pct"                => null,
+			"oom_restarts"                => null,
+			"hash_restarts"               => null,
+			"cpu"                         => $this->collect_cpu_info(),
+			"health"                      => "unavailable",
+			"issues"                      => array(),
+			"recommendations"             => array(),
+		);
+
+		$realpath_bytes = $this->php_env_ini_to_bytes(ini_get("realpath_cache_size"));
+		$report["realpath_cache_size_bytes"] = $realpath_bytes;
+		$report["realpath_cache_size_mb"] = round($realpath_bytes / 1048576, 2);
+
+		$pcre_jit = ini_get("pcre.jit");
+		$report["pcre_jit"] = ($pcre_jit === false || $pcre_jit === "")
+			? null
+			: ((string) $pcre_jit === "1" || $pcre_jit === 1 || $pcre_jit === true);
+
+		$memory_limit = ini_get("memory_limit");
+		$report["memory_limit"] = ($memory_limit === false) ? null : (string) $memory_limit;
+		$report["memory_limit_bytes"] = $this->php_env_ini_to_bytes($memory_limit);
+
+		$report["max_execution_time"] = (int) ini_get("max_execution_time");
+		$report["max_input_time"] = (int) ini_get("max_input_time");
+		$report["max_input_vars"] = (int) ini_get("max_input_vars");
+
+		$upload_max = ini_get("upload_max_filesize");
+		$report["upload_max_filesize"] = ($upload_max === false) ? null : (string) $upload_max;
+		$report["upload_max_filesize_bytes"] = $this->php_env_ini_to_bytes($upload_max);
+
+		$post_max = ini_get("post_max_size");
+		$report["post_max_size"] = ($post_max === false) ? null : (string) $post_max;
+		$report["post_max_size_bytes"] = $this->php_env_ini_to_bytes($post_max);
+
+		$expose = ini_get("expose_php");
+		$report["expose_php"] = ($expose === false || $expose === "")
+			? null
+			: ((string) $expose === "1" || $expose === 1 || $expose === true || strtolower((string) $expose) === "on");
+
+		$zlib = ini_get("zlib.output_compression");
+		$report["zlib_output_compression"] = ($zlib === false || $zlib === "")
+			? null
+			: ((string) $zlib === "1" || $zlib === 1 || $zlib === true || strtolower((string) $zlib) === "on");
+
+		if (!function_exists("opcache_get_status") && !function_exists("opcache_get_configuration")) {
+			$enabled_ini = (string) ini_get("opcache.enable");
+			if ($enabled_ini === "1") {
+				$report["available"] = true;
+				$report["enabled"] = true;
+				$this->php_env_fill_opcache_from_ini($report);
+				$this->php_env_apply_rules($report);
+				return $report;
+			}
+			$report["health"] = "unavailable";
+			$report["issues"][] = "OPcache extension API not available.";
+			$report["recommendations"][] = "Enable Zend OPcache for WordPress hosting.";
+			$this->php_env_apply_soft_rules($report);
+			return $report;
+		}
+
+		$report["available"] = true;
+
+		$config = function_exists("opcache_get_configuration") ? @opcache_get_configuration() : false;
+		if (is_array($config) && isset($config["directives"]) && is_array($config["directives"])) {
+			$d = $config["directives"];
+			$report["enabled"] = !empty($d["opcache.enable"]);
+
+			if (isset($d["opcache.memory_consumption"])) {
+				$mem = (int) $d["opcache.memory_consumption"];
+				$report["memory_consumption_mb"] = ($mem > 1024) ? (int) round($mem / 1048576) : $mem;
+			}
+			if (isset($d["opcache.interned_strings_buffer"])) {
+				$report["interned_strings_buffer_mb"] = (int) $d["opcache.interned_strings_buffer"];
+			}
+			if (isset($d["opcache.max_accelerated_files"])) {
+				$report["max_accelerated_files"] = (int) $d["opcache.max_accelerated_files"];
+			}
+			if (isset($d["opcache.validate_timestamps"])) {
+				$report["validate_timestamps"] = (bool) $d["opcache.validate_timestamps"];
+			}
+			if (isset($d["opcache.revalidate_freq"])) {
+				$report["revalidate_freq"] = (int) $d["opcache.revalidate_freq"];
+			}
+			if (isset($d["opcache.max_wasted_percentage"])) {
+				$report["max_wasted_percentage"] = (int) $d["opcache.max_wasted_percentage"];
+			}
+			if (isset($d["opcache.enable_file_override"])) {
+				$report["enable_file_override"] = (bool) $d["opcache.enable_file_override"];
+			}
+		} else {
+			$this->php_env_fill_opcache_from_ini($report);
+		}
+
+		if ($report["max_wasted_percentage"] === null) {
+			$report["max_wasted_percentage"] = (int) ini_get("opcache.max_wasted_percentage");
+		}
+		if ($report["enable_file_override"] === null) {
+			$report["enable_file_override"] = ((string) ini_get("opcache.enable_file_override") === "1");
+		}
+		if ($report["validate_timestamps"] === null) {
+			$report["validate_timestamps"] = ((string) ini_get("opcache.validate_timestamps") === "1");
+		}
+		if ($report["revalidate_freq"] === null) {
+			$report["revalidate_freq"] = (int) ini_get("opcache.revalidate_freq");
+		}
+
+		if (!$report["enabled"]) {
+			$report["health"] = "disabled";
+			$report["issues"][] = "OPcache is disabled.";
+			$report["recommendations"][] = "Enable opcache.enable=1 and restart PHP (lsphp) for this account.";
+			$this->php_env_apply_soft_rules($report);
+			return $report;
+		}
+
+		$status = function_exists("opcache_get_status") ? @opcache_get_status(false) : false;
+		if ($status === false) {
+			$report["restricted"] = true;
+			$report["health"] = "warn";
+			$report["issues"][] = "opcache_get_status() is restricted; live metrics unavailable.";
+			$report["recommendations"][] = "Allow opcache_get_status for diagnostics, or inspect via server panel.";
+			$this->php_env_apply_rules($report);
+			return $report;
+		}
+
+		if (!is_array($status) || empty($status["opcache_enabled"])) {
+			$report["health"] = "disabled";
+			$report["issues"][] = "OPcache status reports disabled.";
+			$this->php_env_apply_soft_rules($report);
+			return $report;
+		}
+
+		$report["cache_full"] = !empty($status["cache_full"]);
+
+		if (isset($status["memory_usage"]) && is_array($status["memory_usage"])) {
+			$mu = $status["memory_usage"];
+			$used = isset($mu["used_memory"]) ? (int) $mu["used_memory"] : 0;
+			$free = isset($mu["free_memory"]) ? (int) $mu["free_memory"] : 0;
+			$wasted = isset($mu["wasted_memory"]) ? (int) $mu["wasted_memory"] : 0;
+			$total = $used + $free + $wasted;
+			$report["memory_used_bytes"] = $used;
+			$report["memory_free_bytes"] = $free;
+			$report["memory_wasted_bytes"] = $wasted;
+			$report["memory_used_pct"] = ($total > 0) ? round(($used / $total) * 100, 1) : null;
+		}
+
+		if (isset($status["interned_strings_usage"]) && is_array($status["interned_strings_usage"])) {
+			$iu = $status["interned_strings_usage"];
+			$used = isset($iu["used_memory"]) ? (int) $iu["used_memory"] : 0;
+			$free = isset($iu["free_memory"]) ? (int) $iu["free_memory"] : 0;
+			$buf  = isset($iu["buffer_size"]) ? (int) $iu["buffer_size"] : ($used + $free);
+			$report["interned_used_bytes"] = $used;
+			$report["interned_free_bytes"] = $free;
+			$report["interned_buffer_size"] = $buf;
+			$report["interned_used_pct"] = ($buf > 0) ? round(($used / $buf) * 100, 1) : null;
+		}
+
+		if (isset($status["opcache_statistics"]) && is_array($status["opcache_statistics"])) {
+			$st = $status["opcache_statistics"];
+			$hits = isset($st["hits"]) ? (int) $st["hits"] : 0;
+			$misses = isset($st["misses"]) ? (int) $st["misses"] : 0;
+			$report["hits"] = $hits;
+			$report["misses"] = $misses;
+			$denom = $hits + $misses;
+			$report["hit_rate_pct"] = ($denom > 0) ? round(($hits / $denom) * 100, 1) : null;
+			$report["num_cached_scripts"] = isset($st["num_cached_scripts"]) ? (int) $st["num_cached_scripts"] : null;
+			$report["max_cached_keys"] = isset($st["max_cached_keys"]) ? (int) $st["max_cached_keys"] : null;
+			$report["oom_restarts"] = isset($st["oom_restarts"]) ? (int) $st["oom_restarts"] : null;
+			$report["hash_restarts"] = isset($st["hash_restarts"]) ? (int) $st["hash_restarts"] : null;
+
+			if ($report["num_cached_scripts"] !== null && $report["max_cached_keys"] > 0) {
+				$report["scripts_used_pct"] = round(
+					($report["num_cached_scripts"] / $report["max_cached_keys"]) * 100,
+					1
+				);
+			}
+		}
+
+		$this->php_env_apply_rules($report);
+		return $report;
+	}
+
+	/**
+	 * @param array $report Passed by reference.
+	 */
+	function php_env_fill_opcache_from_ini(&$report) {
+		$report["enabled"] = ((string) ini_get("opcache.enable") === "1");
+		$report["memory_consumption_mb"] = (int) ini_get("opcache.memory_consumption");
+		$report["interned_strings_buffer_mb"] = (int) ini_get("opcache.interned_strings_buffer");
+		$report["max_accelerated_files"] = (int) ini_get("opcache.max_accelerated_files");
+		$report["validate_timestamps"] = ((string) ini_get("opcache.validate_timestamps") === "1");
+		$report["revalidate_freq"] = (int) ini_get("opcache.revalidate_freq");
+		$report["max_wasted_percentage"] = (int) ini_get("opcache.max_wasted_percentage");
+		$report["enable_file_override"] = ((string) ini_get("opcache.enable_file_override") === "1");
+	}
+
+	/**
+	 * True when a PHP time/memory limit means unlimited (0 or -1).
+	 *
+	 * @param mixed $value
+	 * @return bool
+	 */
+	function php_env_is_unlimited_limit($value) {
+		if ($value === null || $value === false || $value === "") {
+			return false;
+		}
+		if (is_string($value)) {
+			$trimmed = trim($value);
+			if ($trimmed === "-1" || $trimmed === "0") {
+				return true;
+			}
+		}
+		return ((int) $value === 0 || (int) $value === -1);
+	}
+
+	/**
+	 * Soft tips for non-critical PHP env knobs.
+	 *
+	 * @param array $report Passed by reference.
+	 */
+	function php_env_apply_soft_rules(&$report) {
+		$warn = false;
+		$this->php_env_apply_php_limit_rules($report, $warn);
+
+		$realpath_mb = (float) $report["realpath_cache_size_mb"];
+		if ($realpath_mb > 0 && $realpath_mb < 1.0) {
+			$report["issues"][] = "realpath_cache_size is {$realpath_mb}M (WordPress benefits from 2–4M).";
+			$report["recommendations"][] = "Raise realpath_cache_size to 4M so PHP caches filesystem path lookups.";
+		}
+
+		if ($report["pcre_jit"] === false) {
+			$report["issues"][] = "pcre.jit is disabled.";
+			$report["recommendations"][] = "Enable pcre.jit=1 — WordPress and plugins are regex-heavy.";
+		}
+
+		if ($report["enable_file_override"] === true) {
+			$report["issues"][] = "opcache.enable_file_override is on.";
+			$report["recommendations"][] = "Keep opcache.enable_file_override=0 on shared WordPress hosts for safer file_exists/is_file behaviour.";
+		}
+
+		if ($report["validate_timestamps"] === false) {
+			$report["issues"][] = "opcache.validate_timestamps is off — code deploys need a PHP restart to appear.";
+			$report["recommendations"][] = "On shared hosting prefer validate_timestamps=1 (optionally with revalidate_freq=5).";
+		}
+
+		// Optional suggestion — recommendation only (does not force health=warn by itself).
+		if ($report["revalidate_freq"] !== null && (int) $report["revalidate_freq"] !== 5
+			&& $report["validate_timestamps"] !== false
+		) {
+			$report["recommendations"][] = "Optional suggestion: opcache.revalidate_freq=5 (currently {$report["revalidate_freq"]}).";
+		}
+	}
+
+	/**
+	 * Minimum “good” PHP limits for WordPress operation.
+	 *
+	 * @param array $report Passed by reference.
+	 * @param bool  $warn   Passed by reference.
+	 */
+	function php_env_apply_php_limit_rules(&$report, &$warn) {
+		$min_memory = 256 * 1048576;
+		$min_upload = 10 * 1048576;
+		$min_post   = 10 * 1048576;
+
+		if ($report["memory_limit"] !== null
+			&& !$this->php_env_is_unlimited_limit($report["memory_limit"])
+			&& (int) $report["memory_limit_bytes"] > 0
+			&& (int) $report["memory_limit_bytes"] < $min_memory
+		) {
+			$warn = true;
+			$report["issues"][] = "memory_limit={$report["memory_limit"]} is below 256M.";
+			$report["recommendations"][] = "Raise memory_limit to at least 256M for WordPress.";
+		}
+
+		if ($report["max_execution_time"] !== null
+			&& !$this->php_env_is_unlimited_limit($report["max_execution_time"])
+			&& (int) $report["max_execution_time"] < 30
+		) {
+			$warn = true;
+			$report["issues"][] = "max_execution_time={$report["max_execution_time"]} is below 30.";
+			$report["recommendations"][] = "Raise max_execution_time to at least 30.";
+		}
+
+		if ($report["max_input_time"] !== null
+			&& !$this->php_env_is_unlimited_limit($report["max_input_time"])
+			&& (int) $report["max_input_time"] < 30
+		) {
+			$warn = true;
+			$report["issues"][] = "max_input_time={$report["max_input_time"]} is below 30.";
+			$report["recommendations"][] = "Raise max_input_time to at least 30.";
+		}
+
+		if ($report["max_input_vars"] !== null && (int) $report["max_input_vars"] > 0
+			&& (int) $report["max_input_vars"] < 3000
+		) {
+			$warn = true;
+			$report["issues"][] = "max_input_vars={$report["max_input_vars"]} is below 3000.";
+			$report["recommendations"][] = "Raise max_input_vars to at least 3000 (menus, ACF, WooCommerce).";
+		}
+
+		if ($report["upload_max_filesize"] !== null
+			&& (int) $report["upload_max_filesize_bytes"] > 0
+			&& (int) $report["upload_max_filesize_bytes"] < $min_upload
+		) {
+			$warn = true;
+			$report["issues"][] = "upload_max_filesize={$report["upload_max_filesize"]} is below 10M.";
+			$report["recommendations"][] = "Raise upload_max_filesize to at least 10M.";
+		}
+
+		if ($report["post_max_size"] !== null
+			&& (int) $report["post_max_size_bytes"] > 0
+			&& (int) $report["post_max_size_bytes"] < $min_post
+		) {
+			$warn = true;
+			$report["issues"][] = "post_max_size={$report["post_max_size"]} is below 10M.";
+			$report["recommendations"][] = "Raise post_max_size to at least 10M (and >= upload_max_filesize).";
+		} elseif (
+			$report["post_max_size_bytes"] !== null
+			&& $report["upload_max_filesize_bytes"] !== null
+			&& (int) $report["post_max_size_bytes"] > 0
+			&& (int) $report["upload_max_filesize_bytes"] > 0
+			&& (int) $report["post_max_size_bytes"] < (int) $report["upload_max_filesize_bytes"]
+		) {
+			$warn = true;
+			$report["issues"][] = "post_max_size ({$report["post_max_size"]}) is smaller than upload_max_filesize ({$report["upload_max_filesize"]}).";
+			$report["recommendations"][] = "Set post_max_size >= upload_max_filesize.";
+		}
+
+		if ($report["expose_php"] === true) {
+			$warn = true;
+			$report["issues"][] = "expose_php is On.";
+			$report["recommendations"][] = "Set expose_php=Off.";
+		}
+
+		if ($report["zlib_output_compression"] === true) {
+			$warn = true;
+			$report["issues"][] = "zlib.output_compression is On.";
+			$report["recommendations"][] = "Set zlib.output_compression=Off (let the web server / LiteSpeed compress).";
+		}
+	}
+
+	/**
+	 * @param array $report Passed by reference.
+	 */
+	function php_env_apply_rules(&$report) {
+		$critical = false;
+		$warn = false;
+
+		if (!empty($report["cache_full"])) {
+			$warn = true;
+			$report["issues"][] = "OPcache memory reports cache_full.";
+			$report["recommendations"][] = "Increase opcache.memory_consumption or restart lsphp to reclaim wasted memory.";
+		}
+
+		if ($report["interned_free_bytes"] !== null && (int) $report["interned_free_bytes"] <= 0) {
+			$critical = true;
+			$report["issues"][] = "Interned strings buffer has zero free memory.";
+			$report["recommendations"][] = "Raise opcache.interned_strings_buffer to 32 (or 64 for large WooCommerce) and fully restart PHP for this account.";
+		} elseif ($report["interned_used_pct"] !== null && $report["interned_used_pct"] >= 90) {
+			$warn = true;
+			$report["issues"][] = "Interned strings buffer is {$report["interned_used_pct"]}% used.";
+			$report["recommendations"][] = "Increase opcache.interned_strings_buffer before it hits 100%.";
+		}
+
+		if ($report["scripts_used_pct"] !== null && $report["scripts_used_pct"] >= 95) {
+			$critical = true;
+			$report["issues"][] = "Cached scripts at {$report["scripts_used_pct"]}% of max keys.";
+			$report["recommendations"][] = "Raise opcache.max_accelerated_files to 10000–20000.";
+		} elseif ($report["scripts_used_pct"] !== null && $report["scripts_used_pct"] >= 85) {
+			$warn = true;
+			$report["issues"][] = "Cached scripts at {$report["scripts_used_pct"]}% of max keys.";
+			$report["recommendations"][] = "Raise opcache.max_accelerated_files before the limit is hit.";
+		}
+
+		$samples = (int) $report["hits"] + (int) $report["misses"];
+		if ($report["hit_rate_pct"] !== null && $samples >= 1000 && $report["hit_rate_pct"] < 90) {
+			$warn = true;
+			$report["issues"][] = "OPcache hit rate {$report["hit_rate_pct"]}% with {$samples} samples (healthy is typically 95%+).";
+			$report["recommendations"][] = "Check memory / interned / file limits; ensure PHP was not just restarted.";
+		}
+
+		if ((int) $report["oom_restarts"] > 0) {
+			$warn = true;
+			$report["issues"][] = "OPcache OOM restarts: {$report["oom_restarts"]}.";
+			$report["recommendations"][] = "Increase opcache.memory_consumption.";
+		}
+
+		$interned = (int) $report["interned_strings_buffer_mb"];
+		$files    = (int) $report["max_accelerated_files"];
+		$mem      = (int) $report["memory_consumption_mb"];
+
+		if ($interned > 0 && $interned < 16) {
+			$warn = true;
+			$report["issues"][] = "opcache.interned_strings_buffer={$interned}M is low for WordPress.";
+			$report["recommendations"][] = "Raise opcache.interned_strings_buffer to 32 (MB).";
+		}
+		if ($files > 0 && $files < 10000) {
+			$warn = true;
+			$report["issues"][] = "opcache.max_accelerated_files={$files} is low for WordPress plugin stacks.";
+			$report["recommendations"][] = "Raise opcache.max_accelerated_files to at least 10000 (20000 for heavy WooCommerce).";
+		}
+		if ($mem > 0 && $mem < 128) {
+			$warn = true;
+			$report["issues"][] = "opcache.memory_consumption={$mem}M is below typical WordPress needs.";
+			$report["recommendations"][] = "Use at least 128M; 192–256M only for heavy sites (LSAPI: cost is per warm account).";
+		}
+
+		if ($report["max_wasted_percentage"] !== null && (int) $report["max_wasted_percentage"] > 0
+			&& (int) $report["max_wasted_percentage"] < 5
+		) {
+			$report["issues"][] = "opcache.max_wasted_percentage={$report["max_wasted_percentage"]} is aggressive.";
+			$report["recommendations"][] = "A value around 10 reduces restart churn on shared hosts.";
+		}
+
+		$this->php_env_apply_soft_rules($report);
+
+		if ($critical) {
+			$report["health"] = "critical";
+		} elseif ($warn || !empty($report["issues"])) {
+			if ($report["health"] !== "critical") {
+				$report["health"] = "warn";
+			}
+		} else {
+			$report["health"] = "ok";
+			$report["recommendations"][] = "PHP/OPcache environment looks healthy for typical WordPress loads.";
+		}
+	}
+
+	/**
+	 * @param mixed $value
+	 * @return string
+	 */
+	function php_env_format_value($value) {
+		if ($value === null) {
+			return "—";
+		}
+		if (is_bool($value)) {
+			return $value ? "On" : "Off";
+		}
+		return (string) $value;
+	}
+
+	/**
+	 * @param string $label
+	 * @param string $value
+	 * @param string $status ok|warn|critical|info|optional
+	 * @param string $note
+	 * @param bool   $optional
+	 * @return string
+	 */
+	function php_env_settings_row($label, $value, $status = "info", $note = "", $optional = false) {
+		$status_class = "wpio-env-status-" . preg_replace("/[^a-z]/", "", strtolower($status));
+		$opt_badge = $optional
+			? " <span class='wpio-env-optional' title='Optional — not required for typical WordPress shared hosting'>optional</span>"
+			: "";
+		$note_html = ($note !== "")
+			? "<div class='wpio-env-note'>" . esc_html($note) . "</div>"
+			: "";
+
+		return "<tr class='" . esc_attr($status_class) . "'>"
+			. "<td class='wpio-env-label'>" . esc_html($label) . $opt_badge . "</td>"
+			. "<td class='wpio-env-value'>" . esc_html($value) . $note_html . "</td>"
+			. "</tr>";
+	}
+
+	/**
+	 * Build the PHP settings tab body (tables + tips).
+	 *
+	 * @param array|null $report
+	 * @return string
+	 */
+	function render_php_env_tab_html($report = null) {
+		if ($report === null) {
+			$report = $this->collect_php_env_report();
+		}
+
+		$cpu = isset($report["cpu"]) && is_array($report["cpu"]) ? $report["cpu"] : $this->collect_cpu_info();
+		$health = isset($report["health"]) ? $report["health"] : "unavailable";
+		$health_label = strtoupper($health);
+
+		$rows = "";
+
+		$rows .= $this->php_env_settings_row("PHP version", $this->php_env_format_value($report["php_version"]));
+		$rows .= $this->php_env_settings_row("SAPI", $this->php_env_format_value($report["sapi"]));
+
+		$cpu_detected = (isset($cpu["detected"]) && ($cpu["detected"] === "1" || $cpu["detected"] === true));
+
+		if ($cpu_detected && !empty($cpu["model"])) {
+			$cpu_val = $cpu["model"];
+		} else {
+			$cpu_val = "CPU model unavailable";
+		}
+		if (!empty($cpu["cores_logical"])) {
+			$cpu_val .= " · " . (int) $cpu["cores_logical"] . " cores";
+		}
+		if (!empty($cpu["architecture"])) {
+			$cpu_val .= " · " . $cpu["architecture"];
+		}
+
+		$rows .= $this->php_env_settings_row(
+			"CPU",
+			$cpu_val,
+			$cpu_detected ? "ok" : "info",
+			""
+		);
+
+		// PHP request limits (good minimums)
+		$mem_lim_ok = $report["memory_limit"] !== null && (
+			$this->php_env_is_unlimited_limit($report["memory_limit"])
+			|| (int) $report["memory_limit_bytes"] >= 256 * 1048576
+		);
+		$rows .= $this->php_env_settings_row(
+			"memory_limit",
+			$this->php_env_format_value($report["memory_limit"]),
+			$mem_lim_ok ? "ok" : "warn",
+			$mem_lim_ok ? "" : "Minimum for good operation: 256M"
+		);
+
+		$exec_ok = $report["max_execution_time"] !== null && (
+			$this->php_env_is_unlimited_limit($report["max_execution_time"])
+			|| (int) $report["max_execution_time"] >= 30
+		);
+		$rows .= $this->php_env_settings_row(
+			"max_execution_time",
+			$this->php_env_format_value($report["max_execution_time"]),
+			$exec_ok ? "ok" : "warn",
+			$exec_ok ? "" : "Minimum for good operation: 30"
+		);
+
+		$input_time_ok = $report["max_input_time"] !== null && (
+			$this->php_env_is_unlimited_limit($report["max_input_time"])
+			|| (int) $report["max_input_time"] >= 30
+		);
+		$rows .= $this->php_env_settings_row(
+			"max_input_time",
+			$this->php_env_format_value($report["max_input_time"]),
+			$input_time_ok ? "ok" : "warn",
+			$input_time_ok ? "" : "Minimum for good operation: 30"
+		);
+
+		$input_vars_ok = $report["max_input_vars"] !== null && (int) $report["max_input_vars"] >= 3000;
+		$rows .= $this->php_env_settings_row(
+			"max_input_vars",
+			$this->php_env_format_value($report["max_input_vars"]),
+			$input_vars_ok ? "ok" : "warn",
+			$input_vars_ok ? "" : "Minimum for good operation: 3000"
+		);
+
+		$upload_ok = $report["upload_max_filesize_bytes"] !== null
+			&& (int) $report["upload_max_filesize_bytes"] >= 10 * 1048576;
+		$rows .= $this->php_env_settings_row(
+			"upload_max_filesize",
+			$this->php_env_format_value($report["upload_max_filesize"]),
+			$upload_ok ? "ok" : "warn",
+			$upload_ok ? "" : "Minimum for good operation: 10M"
+		);
+
+		$post_ok = $report["post_max_size_bytes"] !== null
+			&& (int) $report["post_max_size_bytes"] >= 10 * 1048576
+			&& (
+				$report["upload_max_filesize_bytes"] === null
+				|| (int) $report["post_max_size_bytes"] >= (int) $report["upload_max_filesize_bytes"]
+			);
+		$rows .= $this->php_env_settings_row(
+			"post_max_size",
+			$this->php_env_format_value($report["post_max_size"]),
+			$post_ok ? "ok" : "warn",
+			$post_ok ? "" : "Minimum for good operation: 10M (and >= upload_max_filesize)"
+		);
+
+		$expose_ok = ($report["expose_php"] === false);
+		$rows .= $this->php_env_settings_row(
+			"expose_php",
+			$this->php_env_format_value($report["expose_php"]),
+			($report["expose_php"] === null) ? "info" : ($expose_ok ? "ok" : "warn"),
+			$expose_ok ? "" : "Should be Off"
+		);
+
+		$zlib_ok = ($report["zlib_output_compression"] === false);
+		$rows .= $this->php_env_settings_row(
+			"zlib.output_compression",
+			$this->php_env_format_value($report["zlib_output_compression"]),
+			($report["zlib_output_compression"] === null) ? "info" : ($zlib_ok ? "ok" : "warn"),
+			$zlib_ok ? "" : "Should be Off (prefer web-server compression)"
+		);
+
+		$en_status = !empty($report["enabled"]) ? "ok" : "critical";
+		$rows .= $this->php_env_settings_row(
+			"opcache.enable",
+			!empty($report["enabled"]) ? "On" : "Off",
+			$en_status
+		);
+
+		$mem = $report["memory_consumption_mb"];
+		$mem_status = ($mem !== null && (int) $mem < 128) ? "warn" : "info";
+		if (!empty($report["cache_full"])) {
+			$mem_status = "critical";
+		}
+		$mem_note = "";
+		if ($report["memory_used_pct"] !== null) {
+			$mem_note = "Used " . $report["memory_used_pct"] . "%";
+			if ($report["memory_free_bytes"] !== null) {
+				$mem_note .= ", free " . round($report["memory_free_bytes"] / 1048576, 1) . "M";
+			}
+		}
+		$rows .= $this->php_env_settings_row(
+			"opcache.memory_consumption",
+			($mem !== null ? $mem . "M" : "—"),
+			$mem_status,
+			$mem_note
+		);
+
+		$interned = $report["interned_strings_buffer_mb"];
+		$in_status = "info";
+		if ($interned !== null && (int) $interned < 16) {
+			$in_status = "warn";
+		}
+		if ($report["interned_free_bytes"] !== null && (int) $report["interned_free_bytes"] <= 0) {
+			$in_status = "critical";
+		} elseif ($report["interned_used_pct"] !== null && $report["interned_used_pct"] >= 90) {
+			$in_status = "warn";
+		}
+		$in_note = "";
+		if ($report["interned_used_pct"] !== null) {
+			$in_note = "Used " . $report["interned_used_pct"] . "%";
+		}
+		$rows .= $this->php_env_settings_row(
+			"opcache.interned_strings_buffer",
+			($interned !== null ? $interned . "M" : "—"),
+			$in_status,
+			$in_note
+		);
+
+		$files = $report["max_accelerated_files"];
+		$f_status = ($files !== null && (int) $files < 10000) ? "warn" : "info";
+		if ($report["scripts_used_pct"] !== null && $report["scripts_used_pct"] >= 95) {
+			$f_status = "critical";
+		} elseif ($report["scripts_used_pct"] !== null && $report["scripts_used_pct"] >= 85) {
+			$f_status = "warn";
+		}
+		$f_note = "";
+		if ($report["num_cached_scripts"] !== null && $report["max_cached_keys"] !== null) {
+			$f_note = "Cached scripts " . $report["num_cached_scripts"] . " / " . $report["max_cached_keys"];
+			if ($report["scripts_used_pct"] !== null) {
+				$f_note .= " (" . $report["scripts_used_pct"] . "%)";
+			}
+		}
+		$rows .= $this->php_env_settings_row(
+			"opcache.max_accelerated_files",
+			$this->php_env_format_value($files),
+			$f_status,
+			$f_note
+		);
+
+		$rows .= $this->php_env_settings_row(
+			"opcache.validate_timestamps",
+			$this->php_env_format_value($report["validate_timestamps"]),
+			($report["validate_timestamps"] === false) ? "warn" : "info"
+		);
+
+		$reval_freq_ok = ($report["revalidate_freq"] !== null && (int) $report["revalidate_freq"] === 5);
+		$rows .= $this->php_env_settings_row(
+			"opcache.revalidate_freq",
+			$this->php_env_format_value($report["revalidate_freq"]),
+			$reval_freq_ok ? "ok" : "optional",
+			$reval_freq_ok ? "" : "Optional suggested value: 5",
+			true
+		);
+
+		$rows .= $this->php_env_settings_row(
+			"opcache.max_wasted_percentage",
+			$this->php_env_format_value($report["max_wasted_percentage"])
+		);
+		$rows .= $this->php_env_settings_row(
+			"opcache.enable_file_override",
+			$this->php_env_format_value($report["enable_file_override"]),
+			($report["enable_file_override"] === true) ? "warn" : "info"
+		);
+
+		if ($report["hit_rate_pct"] !== null) {
+			$hr_status = "info";
+			$samples = (int) $report["hits"] + (int) $report["misses"];
+			if ($samples >= 1000 && $report["hit_rate_pct"] < 90) {
+				$hr_status = "warn";
+			}
+			$rows .= $this->php_env_settings_row(
+				"OPcache hit rate",
+				$report["hit_rate_pct"] . "%",
+				$hr_status,
+				"Hits " . (int) $report["hits"] . " / misses " . (int) $report["misses"]
+			);
+		}
+
+		$rp_status = ((float) $report["realpath_cache_size_mb"] > 0 && (float) $report["realpath_cache_size_mb"] < 1.0)
+			? "warn" : "info";
+		$rows .= $this->php_env_settings_row(
+			"realpath_cache_size",
+			($report["realpath_cache_size_mb"] !== null ? $report["realpath_cache_size_mb"] . "M" : "—"),
+			$rp_status
+		);
+		$rows .= $this->php_env_settings_row(
+			"pcre.jit",
+			$this->php_env_format_value($report["pcre_jit"]),
+			($report["pcre_jit"] === false) ? "warn" : "info"
+		);
+
+		$tips = $this->get_php_env_recommendation_html_from_report($report);
+
+		return "
+			<div class='wpio-env-meta'>
+				<span class='wpio-env-health wpio-env-health-" . esc_attr($health) . "'>Health: " . esc_html($health_label) . "</span>
+			</div>
+			<table class='wpio-env-table' width='100%'>
+				<thead>
+					<tr><th>Setting</th><th>Value</th></tr>
+				</thead>
+				<tbody>
+					{$rows}
+				</tbody>
+			</table>
+			<div class='wpio-env-tips'>
+				{$tips}
+			</div>
+			<p class='wpio-env-footnote'><em>This analysis does not change your benchmark score.</em></p>
+		";
+	}
+
+	/**
+	 * @param array $report
+	 * @return string
+	 */
+	function get_php_env_recommendation_html_from_report($report) {
+		$health = isset($report["health"]) ? $report["health"] : "unavailable";
+		$html   = "";
+
+		if ($health === "unavailable" && empty($report["enabled"])) {
+			return "<div class='wpio-flex-row'><div class='wpio-flex-col'><strong>Tip:</strong> OPcache status is unavailable. Ask your host to enable Zend OPcache.</div></div>";
+		}
+
+		if ($health === "disabled") {
+			$html .= "<div class='wpio-flex-row'><div class='wpio-flex-col'><strong>Tip:</strong> PHP OPcache is <strong>disabled</strong>. Enabling it usually improves WordPress response time. On LiteSpeed, restart lsphp after changing settings.</div></div>";
+		}
+
+		if ($health === "ok") {
+			$hit = ($report["hit_rate_pct"] !== null)
+				? " Hit rate " . esc_html((string) $report["hit_rate_pct"]) . "%."
+				: "";
+			$html .= "<div class='wpio-flex-row'><div class='wpio-flex-col'><strong>OPcache:</strong> healthy headroom detected.{$hit}</div></div>";
+		}
+
+		$issues = (isset($report["issues"]) && is_array($report["issues"])) ? $report["issues"] : array();
+		$recs   = (isset($report["recommendations"]) && is_array($report["recommendations"])) ? $report["recommendations"] : array();
+		$max_tips = 5;
+		$shown = 0;
+		$count = max(count($issues), count($recs));
+		for ($i = 0; $i < $count && $shown < $max_tips; $i++) {
+			$issue = isset($issues[$i]) ? $issues[$i] : "";
+			$rec   = isset($recs[$i]) ? $recs[$i] : "";
+			if ($rec !== "" && strpos($rec, "looks healthy") !== false && $issue === "") {
+				continue;
+			}
+			$line = trim($issue . ($rec !== "" ? " Suggested: " . $rec : ""));
+			if ($line === "") {
+				continue;
+			}
+			$label = ($health === "critical" && $shown === 0) ? "Warning" : "Tip";
+			$html .= "<div class='wpio-flex-row'><div class='wpio-flex-col'><strong>{$label}:</strong> " . esc_html($line) . "</div></div>";
+			$shown++;
+		}
+
+		return $html;
+	}
+
+	/**
+	 * @return string
+	 */
+	function get_php_env_recommendation_html() {
+		return $this->get_php_env_recommendation_html_from_report($this->collect_php_env_report());
+	}
+
+	/**
+	 * @return array
+	 */
+	function collect_opcache_report() {
+		return $this->collect_php_env_report();
+	}
+
+	/**
+	 * @return string
+	 */
+	function get_opcache_recommendation_html() {
+		return $this->get_php_env_recommendation_html();
+	}
 
 } # end class

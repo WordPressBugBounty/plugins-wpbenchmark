@@ -7,7 +7,7 @@ Plugin Name: Hosting Benchmark tool
 Plugin URI: https://wpbenchmark.io/
 Description: Benchmark your WordPress server's speed and capabilities, featuring scheduled performance monitoring and WordPress-specific tests for objective host comparisons.
 Text Domain: 
-Version: 1.7.0
+Version: 1.8.0
 Requires PHP: 5.6
 Network: true
 Author: Anton Aleksandrov
@@ -553,6 +553,68 @@ class wp_benchmark_io {
 					text-align: justify;
 				}
 
+				.wpio-env-table { border-collapse: collapse; margin: 0.5em 0 1em; width: 100%; }
+				.wpio-env-table th,
+				.wpio-env-table td {
+					border-bottom: 1px solid #e2e4e7;
+					padding: 0.45em 0.6em;
+					text-align: left;
+					vertical-align: top;
+				}
+				.wpio-env-table th { font-size: 0.85em; color: #646970; }
+				.wpio-env-label { width: 42%; font-weight: 600; }
+				.wpio-env-note {
+					font-size: 0.85em;
+					color: #646970;
+					font-weight: normal;
+					margin-top: 0.25em;
+				}
+				.wpio-env-optional {
+					display: inline-block;
+					font-size: 0.7em;
+					font-weight: 600;
+					text-transform: uppercase;
+					letter-spacing: 0.03em;
+					background: #f0f0f1;
+					color: #50575e;
+					padding: 0.1em 0.45em;
+					border-radius: 3px;
+					margin-left: 0.4em;
+					vertical-align: middle;
+				}
+				.wpio-env-status-ok .wpio-env-value { color: #007017; }
+				.wpio-env-status-warn .wpio-env-value,
+				.wpio-env-status-critical .wpio-env-value {
+					color: #b32d2e;
+					font-weight: 700;
+				}
+				.wpio-env-status-optional .wpio-env-value {
+					color: #d97706;
+					font-weight: 600;
+				}
+				.wpio-env-status-warn .wpio-env-note,
+				.wpio-env-status-critical .wpio-env-note {
+					color: #b32d2e;
+				}
+				.wpio-env-status-optional .wpio-env-note {
+					color: #d97706;
+				}
+				.wpio-env-health {
+					display: inline-block;
+					padding: 0.2em 0.6em;
+					border-radius: 3px;
+					font-size: 0.85em;
+					font-weight: 700;
+					margin-bottom: 0.5em;
+				}
+				.wpio-env-health-ok { background: #edfaef; color: #007017; }
+				.wpio-env-health-warn { background: #fcf9e8; color: #9a6700; }
+				.wpio-env-health-critical { background: #fcf0f1; color: #b32d2e; }
+				.wpio-env-health-disabled,
+				.wpio-env-health-unavailable { background: #f0f0f1; color: #50575e; }
+				.wpio-env-footnote { color: #646970; font-size: 0.9em; }
+				.wpio-env-panel { width: 100%; float: none; max-width: 900px; box-sizing: border-box; }
+
 
 				.wpbenchmark-badge {
 				  font-size: 0.8em;
@@ -876,11 +938,14 @@ class wp_benchmark_io {
 
 			$onrequest_tab_class="";
 			$schedulled_tab_class="";
+			$phpenv_tab_class="";
 
 			if ($_REQUEST["tab"]=="onrequest") {
 				$onrequest_tab_class = " nav-tab-active ";
 			} else if ($_REQUEST["tab"]=="schedulled") {
 				$schedulled_tab_class = " nav-tab-active ";
+			} else if ($_REQUEST["tab"]=="phpenv") {
+				$phpenv_tab_class = " nav-tab-active ";
 			}
 
 			$event_args = array();
@@ -890,6 +955,23 @@ class wp_benchmark_io {
 			} else {
 				$badge_txt = "Enabled";
 				$badge_class = "wpbenchmark-badge-success";				
+			}
+
+			$phpenv_badge_txt = "";
+			$phpenv_badge_class = "wpbenchmark-badge-disabled";
+			$php_env_report = null;
+			$php_env_bench = null;
+			require_once(dirname(__FILE__)."/class.wpbenchmarkio.php");
+			$php_env_bench = new wpbenchmarkio();
+			$php_env_report = $php_env_bench->collect_php_env_report();
+			$phpenv_health = isset($php_env_report["health"]) ? $php_env_report["health"] : "unavailable";
+			$phpenv_badge_txt = strtoupper($phpenv_health);
+			if ($phpenv_health === "ok") {
+				$phpenv_badge_class = "wpbenchmark-badge-success";
+			} else if ($phpenv_health === "warn" || $phpenv_health === "critical" || $phpenv_health === "disabled") {
+				$phpenv_badge_class = "wpbenchmark-badge-danger";
+			} else {
+				$phpenv_badge_class = "wpbenchmark-badge-disabled";
 			}
 
 
@@ -906,6 +988,9 @@ class wp_benchmark_io {
 					<a class='nav-tab link-tab".$schedulled_tab_class."' href='?page=".$_REQUEST["page"]."&tab=schedulled'>Scheduled benchmark
 						<span class='wpbenchmark-badge ".$badge_class."'>".$badge_txt."</span>
 					</a>
+					<a class='nav-tab link-tab".$phpenv_tab_class."' href='?page=".esc_attr($_REQUEST["page"])."&tab=phpenv'>PHP settings"
+						.(($phpenv_badge_txt!=="")?" <span class='wpbenchmark-badge ".$phpenv_badge_class."'>".$phpenv_badge_txt."</span>":"").
+					"</a>
 				</h2>
 
 			");
@@ -918,6 +1003,30 @@ class wp_benchmark_io {
 						
 						</div>
 				");
+			} else if ($_REQUEST["tab"]=="phpenv") {
+
+				$env_html = (isset($php_env_bench) && is_object($php_env_bench))
+					? $php_env_bench->render_php_env_tab_html($php_env_report)
+					: "<p>Unable to load PHP environment report.</p>";
+
+				print("
+					<div class='wpio-panel wpio-env-panel'>
+						<div class='wpio-panel-title'>PHP environment overview</div>
+						<div class='wpio-panel-body'>
+							<p style='margin-top:0;'>Live read of PHP/OPcache settings on this host. No benchmark is run — refresh the page to re-check after changing php.ini / MultiPHP INI.</p>
+							".$env_html."
+						</div>
+					</div>
+					<div style='padding-left:1em; max-width:900px;'>
+						<h3 style='margin-bottom:0.4em;'>Notes</h3>
+						<ul style='list-style: disclosure-closed;'>
+							<li>This page does not affect your hosting score.</li>
+							<li>After changing OPcache memory sizes, restart PHP (lsphp) for this account so shared memory is re-allocated.</li>
+							<li>CPU model may be hidden on locked-down shared hosts — architecture fallback is shown instead.</li>
+						</ul>
+					</div>
+				");
+
 			} else if ($_REQUEST["tab"]=="schedulled") {
 
 
@@ -1102,7 +1211,7 @@ class wp_benchmark_io {
 				");
 
 
-		if ($_REQUEST["tab"]!="schedulled") {
+		if ($_REQUEST["tab"]!="schedulled" && $_REQUEST["tab"]!="phpenv") {
 			print("
 				
 				<div class='wpio-row'>

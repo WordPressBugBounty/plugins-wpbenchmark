@@ -6,7 +6,7 @@ Tags: benchmark, speed, hosting, performance, optimization
 Requires at least: 4.0
 Tested up to: 7.0
 Requires PHP: 5.6
-Stable tag: 1.7.0
+Stable tag: 1.8.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -57,6 +57,8 @@ Please use default Wordpress plugin installation method through Wordpress plugin
 3. Backward connectivity test results and timings
 
 == Changelog ==
+
+1.8.0  - added server PHP setting check with suggestions for better performance. This does not affect benchmark scoring, but can help some of you with tuning your PHP.
 
 1.7.0  - added new benchmark categories - data serialization, compression and image processing Wordpress function benchmarks.
 
