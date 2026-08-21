@@ -4,7 +4,7 @@ Plugin URI: https://wpbenchmark.io/
 Donate link: https://wpbenchmark.io/donate/
 Tags: benchmark, speed, hosting, performance, optimization
 Requires at least: 4.0
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 5.6
 Stable tag: 1.8.0
 License: GPLv3
